@@ -1,3 +1,9 @@
 *.egg-info
 build
 __pycache__
+*.es
+*.h5
+cache
+*.png
+*.so
+*.sketch

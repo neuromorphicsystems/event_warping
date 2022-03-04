@@ -2,6 +2,7 @@ from __future__ import annotations
 import dataclasses
 import event_stream
 import h5py
+import matplotlib
 import matplotlib.colors
 import matplotlib.pyplot
 import pathlib
@@ -11,6 +12,8 @@ import PIL.ImageChops
 import PIL.ImageDraw
 import PIL.ImageFont
 import typing
+
+EXTENSION_ENABLED = False
 
 
 def read_h5_file(path: typing.Union[pathlib.Path, str]) -> numpy.ndarray:
@@ -106,6 +109,11 @@ def accumulate_warped_events_gaussian(warped_events: numpy.ndarray, sigma: float
     )
 
 
+def smooth_histogram(warped_events: numpy.ndarray):
+    raise NotImplementedError()
+
+
+# accumulate_warped_events_square is a 2D version of smooth_histogram
 def accumulate_warped_events_square(warped_events: numpy.ndarray):
     x_minimum = float(warped_events["x"].min())
     y_minimum = float(warped_events["y"].min())
@@ -131,13 +139,115 @@ def render(
     cumulative_map: CumulativeMap,
     colormap_name: str,
     gamma: typing.Callable[[numpy.ndarray], numpy.ndarray],
+    bounds: typing.Optional[tuple[float, float]] = None,
 ):
     colormap = matplotlib.pyplot.get_cmap(colormap_name)
+    if bounds is None:
+        bounds = (cumulative_map.pixels.min(), cumulative_map.pixels.max())
     scaled_pixels = gamma(
-        (cumulative_map.pixels - cumulative_map.pixels.min())
-        / (cumulative_map.pixels.max() - cumulative_map.pixels.min())
+        numpy.clip(
+            (cumulative_map.pixels - bounds[0]) / (bounds[1] - bounds[0]),
+            0.0,
+            1.0,
+        )
     )
     image = PIL.Image.fromarray(
         (colormap(scaled_pixels)[:, :, :3] * 255).astype(numpy.uint8)  # type: ignore
     )
     return image.transpose(PIL.Image.FLIP_TOP_BOTTOM)
+
+
+def render_histogram(cumulative_map: CumulativeMap, path: pathlib.Path, title: str):
+    matplotlib.pyplot.figure(figsize=(16, 9))
+    matplotlib.pyplot.hist(cumulative_map.pixels.flat, bins=200, log=True)
+    matplotlib.pyplot.title(title)
+    matplotlib.pyplot.xlabel("Event count")
+    matplotlib.pyplot.ylabel("Pixel count")
+    matplotlib.pyplot.savefig(path)
+    matplotlib.pyplot.close()
+
+
+def intensity_variance(events: numpy.ndarray, velocity: tuple[float, float]):
+    warped_events = warp(events, velocity)
+    cumulative_map = accumulate_warped_events_square(warped_events)
+    return float(numpy.var(cumulative_map.pixels))
+
+
+def intensity_maximum(events: numpy.ndarray, velocity: tuple[float, float]):
+    warped_events = warp(events, velocity)
+    cumulative_map = accumulate_warped_events_square(warped_events)
+    return float(numpy.max(cumulative_map.pixels))
+
+
+# monkey patch the extension
+try:
+    import event_warping_extension  # type: ignore
+    import sys
+
+    for function_name in (
+        "smooth_histogram",
+        "accumulate_warped_events_square",
+        "intensity_variance",
+        "intensity_maximum",
+    ):
+        getattr(event_warping_extension, function_name)
+        setattr(
+            sys.modules[__name__],
+            f"original_{function_name}",
+            getattr(sys.modules[__name__], function_name),
+        )
+
+    def accelerated_accumulate_warped_events_square(warped_events: numpy.ndarray):
+        return CumulativeMap(
+            pixels=event_warping_extension.accumulate_warped_events_square(  # type: ignore
+                warped_events["x"].astype("<f8"),
+                warped_events["y"].astype("<f8"),
+            ),
+            offset=(-warped_events["x"].min() + 1.0, -warped_events["y"].min() + 1.0),
+        )
+
+    def accelerated_intensity_variance(
+        events: numpy.ndarray, velocity: tuple[float, float]
+    ):
+        return event_warping_extension.intensity_variance(  # type: ignore
+            events["t"].astype("<f8"),
+            events["x"].astype("<f8"),
+            events["y"].astype("<f8"),
+            velocity[0],
+            velocity[1],
+        )
+
+    def accelerated_intensity_maximum(
+        events: numpy.ndarray, velocity: tuple[float, float]
+    ):
+        return event_warping_extension.intensity_maximum(  # type: ignore
+            events["t"].astype("<f8"),
+            events["x"].astype("<f8"),
+            events["y"].astype("<f8"),
+            velocity[0],
+            velocity[1],
+        )
+
+    setattr(
+        sys.modules[__name__],
+        "smooth_histogram",
+        event_warping_extension.smooth_histogram,
+    )
+    setattr(
+        sys.modules[__name__],
+        "accumulate_warped_events_square",
+        accelerated_accumulate_warped_events_square,
+    )
+    setattr(
+        sys.modules[__name__],
+        "intensity_variance",
+        accelerated_intensity_variance,
+    )
+    setattr(
+        sys.modules[__name__],
+        "intensity_maximum",
+        accelerated_intensity_maximum,
+    )
+    sys.modules[__name__].__dict__["EXTENSION_ENABLED"] = True
+except (AttributeError, ImportError):
+    pass
