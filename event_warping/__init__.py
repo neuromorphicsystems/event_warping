@@ -173,7 +173,7 @@ def optimize(
         bounds=scipy.optimize.Bounds([-1.0, -1.0], [1.0, 1.0]),
         callback=callback,
     ).x
-    return (float(result[0]), float(result[1]))
+    return (float(result[0]) / 1e3, float(result[1]) / 1e3)
 
 
 def optimize_cma(
@@ -211,14 +211,13 @@ def optimize_cma(
         solutions = []
         for _ in range(optimizer.population_size):
             x = optimizer.ask()
-            value = heuristic((x[0] * 1e-3, x[1] * 1e-3))
+            value = heuristic((x[0] / 1e3, x[1] / 1e3))
             solutions.append((x, value))
         optimizer.tell(solutions)
         velocity_array, heuristic_value = sorted(
             solutions, key=lambda solution: solution[1]
         )[0]
-        velocity = (velocity_array[0] * 1e-3, velocity_array[1] * 1e-3)
-        display_velocity = (velocity_array[0] * 1e3, velocity_array[1] * 1e3)
+        velocity = (velocity_array[0] / 1e3, velocity_array[1] / 1e3)
         if heuristic_value < best_heuristic:
             best_velocity = velocity
             best_heuristic = heuristic_value
