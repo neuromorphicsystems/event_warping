@@ -19,13 +19,14 @@ dirname = pathlib.Path(__file__).resolve().parent
 
 (dirname / "cache").mkdir(exist_ok=True)
 
-events = event_warping.read_es_file(dirname / f"{configuration.name}.es")
+width, height, events = event_warping.read_es_file(dirname / f"{configuration.name}.es")
 events = event_warping.without_most_active_pixels(events, ratio=configuration.ratio)
-warped_events = event_warping.warp(
-    events, velocity=(configuration.velocity[0] / 1e6, configuration.velocity[1] / 1e6)
-)
 
-cumulative_map = event_warping.accumulate_warped_events_square(warped_events)
+cumulative_map = event_warping.accumulate(
+    sensor_size=(width, height),
+    events=events,
+    velocity=(configuration.velocity[0] / 1e6, configuration.velocity[1] / 1e6),
+)
 
 event_warping.render(
     cumulative_map,

@@ -56,16 +56,46 @@ static PyObject* smooth_histogram(PyObject* self, PyObject* args) {
     return nullptr;
 }
 
-// accumulate_warped_events_square is a 2D version of smooth_histogram
-static PyObject* accumulate_warped_events_square(PyObject* self, PyObject* args) {
+// accumulate is a 2D version of smooth_histogram
+static PyObject* accumulate(PyObject* self, PyObject* args) {
+    int32_t sensor_width;
+    int32_t sensor_height;
+    PyObject* raw_ts;
     PyObject* raw_xs;
     PyObject* raw_ys;
-    if (!PyArg_ParseTuple(args, "OO", &raw_xs, &raw_ys)) {
+    double velocity_x;
+    double velocity_y;
+    if (!PyArg_ParseTuple(
+            args,
+            "iiOOOdd",
+            &sensor_width,
+            &sensor_height,
+            &raw_ts,
+            &raw_xs,
+            &raw_ys,
+            &velocity_x,
+            &velocity_y)) {
         return nullptr;
     }
     try {
+        if (sensor_width <= 0) {
+            throw std::runtime_error("sensor_width must be larger than zero");
+        }
+        if (sensor_height <= 0) {
+            throw std::runtime_error("sensor_height must be larger than zero");
+        }
+        if (!PyArray_Check(raw_ts)) {
+            throw std::runtime_error("t must be a numpy array");
+        }
+        auto ts = reinterpret_cast<PyArrayObject*>(raw_ts);
+        if (PyArray_NDIM(ts) != 1) {
+            throw std::runtime_error("t's dimension must be 1");
+        }
+        if (PyArray_TYPE(ts) != NPY_FLOAT64) {
+            throw std::runtime_error("t's type must be float");
+        }
         if (!PyArray_Check(raw_xs)) {
-            throw std::runtime_error("x must be a numpy array");
+            throw std::runtime_error("t must be a numpy array");
         }
         auto xs = reinterpret_cast<PyArrayObject*>(raw_xs);
         if (PyArray_NDIM(xs) != 1) {
@@ -74,7 +104,6 @@ static PyObject* accumulate_warped_events_square(PyObject* self, PyObject* args)
         if (PyArray_TYPE(xs) != NPY_FLOAT64) {
             throw std::runtime_error("x's type must be float");
         }
-
         if (!PyArray_Check(raw_ys)) {
             throw std::runtime_error("x must be a numpy array");
         }
@@ -85,37 +114,35 @@ static PyObject* accumulate_warped_events_square(PyObject* self, PyObject* args)
         if (PyArray_TYPE(ys) != NPY_FLOAT64) {
             throw std::runtime_error("y's type must be float");
         }
-        const auto size = PyArray_SIZE(xs);
+        const auto size = PyArray_SIZE(ts);
+        if (PyArray_SIZE(xs) != size) {
+            throw std::runtime_error("t and x must have the same size");
+        }
         if (PyArray_SIZE(ys) != size) {
-            throw std::runtime_error("x and y must have the same size");
+            throw std::runtime_error("t and y must have the same size");
         }
-        auto x_minimum = std::numeric_limits<double>::infinity();
-        auto y_minimum = std::numeric_limits<double>::infinity();
-        auto x_maximum = -std::numeric_limits<double>::infinity();
-        auto y_maximum = -std::numeric_limits<double>::infinity();
-        Py_BEGIN_ALLOW_THREADS;
-        for (npy_intp index = 0; index < size; ++index) {
-            const auto x = *reinterpret_cast<double*>(PyArray_GETPTR1(xs, index));
-            const auto y = *reinterpret_cast<double*>(PyArray_GETPTR1(ys, index));
-            x_minimum = std::min(x_minimum, x);
-            y_minimum = std::min(y_minimum, y);
-            x_maximum = std::max(x_maximum, x);
-            y_maximum = std::max(y_maximum, y);
-        }
-        Py_END_ALLOW_THREADS;
+        const auto t0 = *reinterpret_cast<double*>(PyArray_GETPTR1(ts, 0));
+        const auto t1 = *reinterpret_cast<double*>(PyArray_GETPTR1(ts, size - 1));
+        const auto maximum_delta_x = std::floor(std::abs(velocity_x) * (t1 - t0)) + 2.0;
+        const auto maximum_delta_y = std::floor(std::abs(velocity_y) * (t1 - t0)) + 2.0;
+        const auto width = static_cast<std::size_t>(sensor_width + maximum_delta_x);
+        const auto height = static_cast<std::size_t>(sensor_height + maximum_delta_y);
         const std::array<npy_intp, 2> dimensions{
-            static_cast<npy_intp>(std::ceil(y_maximum - y_minimum + 1)) + 2,
-            static_cast<npy_intp>(std::ceil(x_maximum - x_minimum + 1)) + 2};
+            static_cast<npy_intp>(height), static_cast<npy_intp>(width)};
         auto result = reinterpret_cast<PyArrayObject*>(
             PyArray_Zeros(2, dimensions.data(), PyArray_DescrFromType(NPY_FLOAT64), 0));
         Py_BEGIN_ALLOW_THREADS;
         for (npy_intp index = 0; index < size; ++index) {
-            const auto x =
-                (*reinterpret_cast<double*>(PyArray_GETPTR1(xs, index))) - x_minimum + 1.0;
-            const auto y =
-                (*reinterpret_cast<double*>(PyArray_GETPTR1(ys, index))) - y_minimum + 1.0;
-            const auto xi = std::floor(x);
-            const auto yi = std::floor(y);
+            const auto warped_x =
+                *reinterpret_cast<double*>(PyArray_GETPTR1(xs, index))
+                - velocity_x * ((*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))) - t0);
+            const auto warped_y =
+                *reinterpret_cast<double*>(PyArray_GETPTR1(ys, index))
+                - velocity_y * ((*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))) - t0);
+            const auto x = warped_x + (velocity_x > 0 ? maximum_delta_x : 0.0);
+            const auto y = warped_y + (velocity_y > 0 ? maximum_delta_y : 0.0);
+            auto xi = std::floor(x);
+            auto yi = std::floor(y);
             const auto xf = x - xi;
             const auto yf = y - yi;
             (*reinterpret_cast<double*>(
@@ -139,15 +166,32 @@ static PyObject* accumulate_warped_events_square(PyObject* self, PyObject* args)
 }
 
 static PyObject* intensity_variance(PyObject* self, PyObject* args) {
+    int32_t sensor_width;
+    int32_t sensor_height;
     PyObject* raw_ts;
     PyObject* raw_xs;
     PyObject* raw_ys;
     double velocity_x;
     double velocity_y;
-    if (!PyArg_ParseTuple(args, "OOOdd", &raw_ts, &raw_xs, &raw_ys, &velocity_x, &velocity_y)) {
+    if (!PyArg_ParseTuple(
+            args,
+            "iiOOOdd",
+            &sensor_width,
+            &sensor_height,
+            &raw_ts,
+            &raw_xs,
+            &raw_ys,
+            &velocity_x,
+            &velocity_y)) {
         return nullptr;
     }
     try {
+        if (sensor_width <= 0) {
+            throw std::runtime_error("sensor_width must be larger than zero");
+        }
+        if (sensor_height <= 0) {
+            throw std::runtime_error("sensor_height must be larger than zero");
+        }
         if (!PyArray_Check(raw_ts)) {
             throw std::runtime_error("t must be a numpy array");
         }
@@ -187,30 +231,24 @@ static PyObject* intensity_variance(PyObject* self, PyObject* args) {
         }
         auto variance = 0.0;
         Py_BEGIN_ALLOW_THREADS;
-        auto x_minimum = std::numeric_limits<double>::infinity();
-        auto y_minimum = std::numeric_limits<double>::infinity();
-        auto x_maximum = -std::numeric_limits<double>::infinity();
-        auto y_maximum = -std::numeric_limits<double>::infinity();
-        std::vector<std::pair<double, double>> warped(size, {0.0, 0.0});
-        for (npy_intp index = 0; index < size; ++index) {
-            warped[index] = {
-                *reinterpret_cast<double*>(PyArray_GETPTR1(xs, index))
-                    - velocity_x * (*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))),
-                *reinterpret_cast<double*>(PyArray_GETPTR1(ys, index))
-                    - velocity_y * (*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index)))};
-            x_minimum = std::min(x_minimum, std::get<0>(warped[index]));
-            y_minimum = std::min(y_minimum, std::get<1>(warped[index]));
-            x_maximum = std::max(x_maximum, std::get<0>(warped[index]));
-            y_maximum = std::max(y_maximum, std::get<1>(warped[index]));
-        }
-        const auto width = static_cast<std::size_t>(std::ceil(x_maximum - x_minimum + 1)) + 2;
-        const auto height = static_cast<std::size_t>(std::ceil(y_maximum - y_minimum + 1)) + 2;
+        const auto t0 = *reinterpret_cast<double*>(PyArray_GETPTR1(ts, 0));
+        const auto t1 = *reinterpret_cast<double*>(PyArray_GETPTR1(ts, size - 1));
+        const auto maximum_delta_x = std::floor(std::abs(velocity_x) * (t1 - t0)) + 2.0;
+        const auto maximum_delta_y = std::floor(std::abs(velocity_y) * (t1 - t0)) + 2.0;
+        const auto width = static_cast<std::size_t>(sensor_width + maximum_delta_x);
+        const auto height = static_cast<std::size_t>(sensor_height + maximum_delta_y);
         std::vector<double> cumulative_map(width * height, 0.0);
         for (npy_intp index = 0; index < size; ++index) {
-            const auto x = std::get<0>(warped[index]) - x_minimum + 1.0;
-            const auto y = std::get<1>(warped[index]) - y_minimum + 1.0;
-            const auto xi = std::floor(x);
-            const auto yi = std::floor(y);
+            const auto warped_x =
+                *reinterpret_cast<double*>(PyArray_GETPTR1(xs, index))
+                - velocity_x * ((*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))) - t0);
+            const auto warped_y =
+                *reinterpret_cast<double*>(PyArray_GETPTR1(ys, index))
+                - velocity_y * ((*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))) - t0);
+            const auto x = warped_x + (velocity_x > 0 ? maximum_delta_x : 0.0);
+            const auto y = warped_y + (velocity_y > 0 ? maximum_delta_y : 0.0);
+            auto xi = std::floor(x);
+            auto yi = std::floor(y);
             const auto xf = x - xi;
             const auto yf = y - yi;
             cumulative_map[xi + yi * width] += (1.0 - xf) * (1.0 - yf);
@@ -220,12 +258,36 @@ static PyObject* intensity_variance(PyObject* self, PyObject* args) {
         }
         auto mean = 0.0;
         auto m2 = 0.0;
-        for (std::size_t index = 0; index < cumulative_map.size(); ++index) {
-            const auto delta = cumulative_map[index] - mean;
-            mean += delta / static_cast<double>(index + 1);
-            m2 += delta * (cumulative_map[index] - mean);
+        auto minimum_determinant = 0.0;
+        auto maximum_determinant = 0.0;
+        auto corrected_velocity_x = 0.0;
+        auto corrected_velocity_y = 0.0;
+        if ((velocity_x >= 0.0) == (velocity_y >= 0.0)) {
+            corrected_velocity_x = std::abs(velocity_x);
+            corrected_velocity_y = std::abs(velocity_y);
+            minimum_determinant = -corrected_velocity_y * sensor_width;
+            maximum_determinant = corrected_velocity_x * sensor_height;
+        } else {
+            corrected_velocity_x = std::abs(velocity_x);
+            corrected_velocity_y = -std::abs(velocity_y);
+            minimum_determinant = corrected_velocity_x * maximum_delta_y;
+            maximum_determinant = corrected_velocity_x * (maximum_delta_y + sensor_height)
+                                  - corrected_velocity_y * sensor_width;
         }
-        variance = m2 / static_cast<double>(cumulative_map.size());
+        std::size_t count = 0;
+        for (std::size_t y = 0; y < height; ++y) {
+            for (std::size_t x = 0; x < width; ++x) {
+                const auto determinant = y * corrected_velocity_x - x * corrected_velocity_y;
+                if (determinant >= minimum_determinant && determinant <= maximum_determinant) {
+                    const auto value = cumulative_map[x + y * width];
+                    const auto delta = value - mean;
+                    mean += delta / static_cast<double>(count + 1);
+                    m2 += delta * (value - mean);
+                    ++count;
+                }
+            }
+        }
+        variance = m2 / static_cast<double>(count);
         Py_END_ALLOW_THREADS;
         return PyFloat_FromDouble(variance);
     } catch (const std::exception& exception) {
@@ -235,15 +297,32 @@ static PyObject* intensity_variance(PyObject* self, PyObject* args) {
 }
 
 static PyObject* intensity_maximum(PyObject* self, PyObject* args) {
+    int32_t sensor_width;
+    int32_t sensor_height;
     PyObject* raw_ts;
     PyObject* raw_xs;
     PyObject* raw_ys;
     double velocity_x;
     double velocity_y;
-    if (!PyArg_ParseTuple(args, "OOOdd", &raw_ts, &raw_xs, &raw_ys, &velocity_x, &velocity_y)) {
+    if (!PyArg_ParseTuple(
+            args,
+            "iiOOOdd",
+            &sensor_width,
+            &sensor_height,
+            &raw_ts,
+            &raw_xs,
+            &raw_ys,
+            &velocity_x,
+            &velocity_y)) {
         return nullptr;
     }
     try {
+        if (sensor_width <= 0) {
+            throw std::runtime_error("sensor_width must be larger than zero");
+        }
+        if (sensor_height <= 0) {
+            throw std::runtime_error("sensor_height must be larger than zero");
+        }
         if (!PyArray_Check(raw_ts)) {
             throw std::runtime_error("t must be a numpy array");
         }
@@ -283,30 +362,24 @@ static PyObject* intensity_maximum(PyObject* self, PyObject* args) {
         }
         auto maximum = 0.0;
         Py_BEGIN_ALLOW_THREADS;
-        auto x_minimum = std::numeric_limits<double>::infinity();
-        auto y_minimum = std::numeric_limits<double>::infinity();
-        auto x_maximum = -std::numeric_limits<double>::infinity();
-        auto y_maximum = -std::numeric_limits<double>::infinity();
-        std::vector<std::pair<double, double>> warped(size, {0.0, 0.0});
-        for (npy_intp index = 0; index < size; ++index) {
-            warped[index] = {
-                *reinterpret_cast<double*>(PyArray_GETPTR1(xs, index))
-                    - velocity_x * (*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))),
-                *reinterpret_cast<double*>(PyArray_GETPTR1(ys, index))
-                    - velocity_y * (*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index)))};
-            x_minimum = std::min(x_minimum, std::get<0>(warped[index]));
-            y_minimum = std::min(y_minimum, std::get<1>(warped[index]));
-            x_maximum = std::max(x_maximum, std::get<0>(warped[index]));
-            y_maximum = std::max(y_maximum, std::get<1>(warped[index]));
-        }
-        const auto width = static_cast<std::size_t>(std::ceil(x_maximum - x_minimum + 1)) + 2;
-        const auto height = static_cast<std::size_t>(std::ceil(y_maximum - y_minimum + 1)) + 2;
+        const auto t0 = *reinterpret_cast<double*>(PyArray_GETPTR1(ts, 0));
+        const auto t1 = *reinterpret_cast<double*>(PyArray_GETPTR1(ts, size - 1));
+        const auto maximum_delta_x = std::floor(std::abs(velocity_x) * (t1 - t0)) + 2.0;
+        const auto maximum_delta_y = std::floor(std::abs(velocity_y) * (t1 - t0)) + 2.0;
+        const auto width = static_cast<std::size_t>(sensor_width + maximum_delta_x);
+        const auto height = static_cast<std::size_t>(sensor_height + maximum_delta_y);
         std::vector<double> cumulative_map(width * height, 0.0);
         for (npy_intp index = 0; index < size; ++index) {
-            const auto x = std::get<0>(warped[index]) - x_minimum + 1.0;
-            const auto y = std::get<1>(warped[index]) - y_minimum + 1.0;
-            const auto xi = std::floor(x);
-            const auto yi = std::floor(y);
+            const auto warped_x =
+                *reinterpret_cast<double*>(PyArray_GETPTR1(xs, index))
+                - velocity_x * ((*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))) - t0);
+            const auto warped_y =
+                *reinterpret_cast<double*>(PyArray_GETPTR1(ys, index))
+                - velocity_y * ((*reinterpret_cast<double*>(PyArray_GETPTR1(ts, index))) - t0);
+            const auto x = warped_x + (velocity_x > 0 ? maximum_delta_x : 0.0);
+            const auto y = warped_y + (velocity_y > 0 ? maximum_delta_y : 0.0);
+            auto xi = std::floor(x);
+            auto yi = std::floor(y);
             const auto xf = x - xi;
             const auto yf = y - yi;
             cumulative_map[xi + yi * width] += (1.0 - xf) * (1.0 - yf);
@@ -328,7 +401,7 @@ static PyObject* intensity_maximum(PyObject* self, PyObject* args) {
 
 static PyMethodDef event_warping_extension_methods[] = {
     {"smooth_histogram", smooth_histogram, METH_VARARGS, nullptr},
-    {"accumulate_warped_events_square", accumulate_warped_events_square, METH_VARARGS, nullptr},
+    {"accumulate", accumulate, METH_VARARGS, nullptr},
     {"intensity_variance", intensity_variance, METH_VARARGS, nullptr},
     {"intensity_maximum", intensity_maximum, METH_VARARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}};

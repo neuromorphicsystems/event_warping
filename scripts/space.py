@@ -12,15 +12,15 @@ dirname = pathlib.Path(__file__).resolve().parent
 
 (dirname / "cache").mkdir(exist_ok=True)
 
-events = event_warping.read_es_file(dirname / f"{configuration.name}.es")
+width, height, events = event_warping.read_es_file(dirname / f"{configuration.name}.es")
 events = event_warping.without_most_active_pixels(events, ratio=configuration.ratio)
 
 
 def calculate_heuristic(velocity: tuple[float, float]):
     if configuration.heuristic == "variance":
-        return event_warping.intensity_variance(events, velocity)
+        return event_warping.intensity_variance((width, height), events, velocity)
     if configuration.heuristic == "max":
-        return event_warping.intensity_maximum(events, velocity)
+        return event_warping.intensity_maximum((width, height), events, velocity)
     raise Exception("unknown heuristic")
 
 

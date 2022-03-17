@@ -61,11 +61,13 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     install_requires=[
+        "cmaes >= 0.8.2",
         "event_stream >= 1.4",
         "h5py >= 3.0",
         "matplotlib >= 3.0",
         "numpy >= 1.20",
         "pillow >= 9.0",
+        "scipy >= 1.8",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

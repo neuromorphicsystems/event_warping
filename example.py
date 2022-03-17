@@ -11,7 +11,11 @@ warped_events = event_warping.warp(
     velocity=(21.49 / 1e6, -0.74 / 1e6),  # px/µs
 )
 
-cumulative_map = event_warping.accumulate_warped_events_square(warped_events)
+cumulative_map = event_warping.accumulate(
+    sensor_size=(240, 180),
+    events=filtered_events,
+    velocity=(21.49 / 1e6, -0.74 / 1e6),  # px/µs
+)
 
 image = event_warping.render(
     cumulative_map,

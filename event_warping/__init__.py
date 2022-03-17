@@ -1,4 +1,6 @@
 from __future__ import annotations
+import cmaes
+import copy
 import dataclasses
 import event_stream
 import h5py
@@ -11,6 +13,7 @@ import PIL.Image
 import PIL.ImageChops
 import PIL.ImageDraw
 import PIL.ImageFont
+import scipy.optimize
 import typing
 
 EXTENSION_ENABLED = False
@@ -26,15 +29,20 @@ def read_h5_file(path: typing.Union[pathlib.Path, str]) -> numpy.ndarray:
     return events
 
 
-def read_es_file(path: typing.Union[pathlib.Path, str]) -> numpy.ndarray:
+def read_es_file(
+    path: typing.Union[pathlib.Path, str]
+) -> tuple[int, int, numpy.ndarray]:
     with event_stream.Decoder(path) as decoder:
-        return numpy.concatenate([packet for packet in decoder])
+        return (
+            decoder.width,
+            decoder.height,
+            numpy.concatenate([packet for packet in decoder]),
+        )
 
 
 @dataclasses.dataclass
 class CumulativeMap:
     pixels: numpy.ndarray
-    offset: tuple[float, float]
 
 
 def without_most_active_pixels(events: numpy.ndarray, ratio: float):
@@ -73,66 +81,16 @@ def unwarp(warped_events: numpy.ndarray, velocity: tuple[float, float]):
     return events
 
 
-def accumulate_warped_events_gaussian(warped_events: numpy.ndarray, sigma: float):
-    padding = int(numpy.ceil(6.0 * sigma))
-    kernel_indices = numpy.zeros((padding * 2 + 1, padding * 2 + 1, 2))
-    for y in range(0, padding * 2 + 1):
-        for x in range(0, padding * 2 + 1):
-            kernel_indices[y, x][0] = x - padding
-            kernel_indices[y, x][1] = y - padding
-    x_minimum = float(warped_events["x"].min())
-    y_minimum = float(warped_events["y"].min())
-    xs = warped_events["x"].astype("<f8") - x_minimum + padding
-    ys = warped_events["y"].astype("<f8") - y_minimum + padding
-    pixels = numpy.zeros(
-        (
-            int(numpy.ceil(ys.max())) + padding + 1,
-            int(numpy.ceil(xs.max())) + padding + 1,
-        )
-    )
-    xis = numpy.round(xs).astype("<i8")
-    yis = numpy.round(ys).astype("<i8")
-    xfs = xs - xis
-    yfs = ys - yis
-    sigma_factor = -1.0 / (2.0 * sigma**2.0)
-    for xi, yi, xf, yf in zip(xis, yis, xfs, yfs):
-        pixels[
-            yi - padding : yi + padding + 1,
-            xi - padding : xi + padding + 1,
-        ] += numpy.exp(
-            numpy.sum((kernel_indices - numpy.array([xf, yf])) ** 2.0, axis=2)
-            * sigma_factor
-        )
-    return CumulativeMap(
-        pixels=pixels,
-        offset=(-x_minimum + padding, -y_minimum + padding),
-    )
-
-
 def smooth_histogram(warped_events: numpy.ndarray):
     raise NotImplementedError()
 
 
-# accumulate_warped_events_square is a 2D version of smooth_histogram
-def accumulate_warped_events_square(warped_events: numpy.ndarray):
-    x_minimum = float(warped_events["x"].min())
-    y_minimum = float(warped_events["y"].min())
-    xs = warped_events["x"].astype("<f8") - x_minimum + 1.0
-    ys = warped_events["y"].astype("<f8") - y_minimum + 1.0
-    pixels = numpy.zeros((int(numpy.ceil(ys.max())) + 2, int(numpy.ceil(xs.max())) + 2))
-    xis = numpy.floor(xs).astype("<i8")
-    yis = numpy.floor(ys).astype("<i8")
-    xfs = xs - xis
-    yfs = ys - yis
-    for xi, yi, xf, yf in zip(xis, yis, xfs, yfs):
-        pixels[yi, xi] += (1.0 - xf) * (1.0 - yf)
-        pixels[yi, xi + 1] += xf * (1.0 - yf)
-        pixels[yi + 1, xi] += (1.0 - xf) * yf
-        pixels[yi + 1, xi + 1] += xf * yf
-    return CumulativeMap(
-        pixels=pixels,
-        offset=(-x_minimum + 1.0, -y_minimum + 1.0),
-    )
+def accumulate(
+    sensor_size: tuple[int, int],
+    events: numpy.ndarray,
+    velocity: tuple[float, float],
+):
+    raise NotImplementedError()
 
 
 def render(
@@ -167,16 +125,104 @@ def render_histogram(cumulative_map: CumulativeMap, path: pathlib.Path, title: s
     matplotlib.pyplot.close()
 
 
-def intensity_variance(events: numpy.ndarray, velocity: tuple[float, float]):
-    warped_events = warp(events, velocity)
-    cumulative_map = accumulate_warped_events_square(warped_events)
-    return float(numpy.var(cumulative_map.pixels))
+def intensity_variance(
+    sensor_size: tuple[int, int],
+    events: numpy.ndarray,
+    velocity: tuple[float, float],
+):
+    raise NotImplementedError()
 
 
-def intensity_maximum(events: numpy.ndarray, velocity: tuple[float, float]):
-    warped_events = warp(events, velocity)
-    cumulative_map = accumulate_warped_events_square(warped_events)
-    return float(numpy.max(cumulative_map.pixels))
+def intensity_maximum(
+    sensor_size: tuple[int, int],
+    events: numpy.ndarray,
+    velocity: tuple[float, float],
+):
+    raise NotImplementedError()
+
+
+def optimize(
+    sensor_size: tuple[int, int],
+    events: numpy.ndarray,
+    initial_velocity: tuple[float, float],  # px/µs
+    heuristic_name: str,  # max or variance
+    method: str,  # Nelder-Mead, Powell, L-BFGS-B, TNC, SLSQP
+    # see Constrained Minimization in https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+    callback: typing.Callable[[numpy.ndarray], None],
+):
+    def heuristic(velocity):
+        if heuristic_name == "max":
+            return -intensity_maximum(
+                sensor_size,
+                events,
+                velocity=(velocity[0] / 1e3, velocity[1] / 1e3),
+            )
+        elif heuristic_name == "variance":
+            return -intensity_variance(
+                sensor_size,
+                events,
+                velocity=(velocity[0] / 1e3, velocity[1] / 1e3),
+            )
+        else:
+            raise Exception(f'unnknown heuristic name "{heuristic_name}"')
+
+    result = scipy.optimize.minimize(
+        fun=heuristic,
+        x0=[initial_velocity[0] * 1e3, initial_velocity[1] * 1e3],
+        method=method,
+        bounds=scipy.optimize.Bounds([-1.0, -1.0], [1.0, 1.0]),
+        callback=callback,
+    ).x
+    return (float(result[0]), float(result[1]))
+
+
+def optimize_cma(
+    sensor_size: tuple[int, int],
+    events: numpy.ndarray,
+    initial_velocity: tuple[float, float],
+    initial_sigma: float,
+    heuristic_name: str,
+    iterations: int,
+):
+    def heuristic(velocity):
+        if heuristic_name == "max":
+            return -intensity_maximum(
+                sensor_size,
+                events,
+                velocity=velocity,
+            )
+        elif heuristic_name == "variance":
+            return -intensity_variance(
+                sensor_size,
+                events,
+                velocity=velocity,
+            )
+        else:
+            raise Exception(f'unnknown heuristic name "{heuristic_name}"')
+
+    optimizer = cmaes.CMA(
+        mean=numpy.array(initial_velocity) * 1e3,
+        sigma=initial_sigma * 1e3,
+        bounds=numpy.array([[-1.0, 1.0], [-1.0, 1.0]]),
+    )
+    best_velocity: tuple[float, float] = copy.copy(initial_velocity)
+    best_heuristic = numpy.Infinity
+    for _ in range(0, iterations):
+        solutions = []
+        for _ in range(optimizer.population_size):
+            x = optimizer.ask()
+            value = heuristic((x[0] * 1e-3, x[1] * 1e-3))
+            solutions.append((x, value))
+        optimizer.tell(solutions)
+        velocity_array, heuristic_value = sorted(
+            solutions, key=lambda solution: solution[1]
+        )[0]
+        velocity = (velocity_array[0] * 1e-3, velocity_array[1] * 1e-3)
+        display_velocity = (velocity_array[0] * 1e3, velocity_array[1] * 1e3)
+        if heuristic_value < best_heuristic:
+            best_velocity = velocity
+            best_heuristic = heuristic_value
+    return (float(best_velocity[0]), float(best_velocity[1]))
 
 
 # monkey patch the extension
@@ -186,7 +232,7 @@ try:
 
     for function_name in (
         "smooth_histogram",
-        "accumulate_warped_events_square",
+        "accumulate",
         "intensity_variance",
         "intensity_maximum",
     ):
@@ -197,19 +243,31 @@ try:
             getattr(sys.modules[__name__], function_name),
         )
 
-    def accelerated_accumulate_warped_events_square(warped_events: numpy.ndarray):
+    def accelerated_accumulate(
+        sensor_size: tuple[int, int],
+        events: numpy.ndarray,
+        velocity: tuple[float, float],
+    ):
         return CumulativeMap(
-            pixels=event_warping_extension.accumulate_warped_events_square(  # type: ignore
-                warped_events["x"].astype("<f8"),
-                warped_events["y"].astype("<f8"),
+            pixels=event_warping_extension.accumulate(  # type: ignore
+                sensor_size[0],
+                sensor_size[1],
+                events["t"].astype("<f8"),
+                events["x"].astype("<f8"),
+                events["y"].astype("<f8"),
+                velocity[0],
+                velocity[1],
             ),
-            offset=(-warped_events["x"].min() + 1.0, -warped_events["y"].min() + 1.0),
         )
 
     def accelerated_intensity_variance(
-        events: numpy.ndarray, velocity: tuple[float, float]
+        sensor_size: tuple[int, int],
+        events: numpy.ndarray,
+        velocity: tuple[float, float],
     ):
         return event_warping_extension.intensity_variance(  # type: ignore
+            sensor_size[0],
+            sensor_size[1],
             events["t"].astype("<f8"),
             events["x"].astype("<f8"),
             events["y"].astype("<f8"),
@@ -218,9 +276,13 @@ try:
         )
 
     def accelerated_intensity_maximum(
-        events: numpy.ndarray, velocity: tuple[float, float]
+        sensor_size: tuple[int, int],
+        events: numpy.ndarray,
+        velocity: tuple[float, float],
     ):
         return event_warping_extension.intensity_maximum(  # type: ignore
+            sensor_size[0],
+            sensor_size[1],
             events["t"].astype("<f8"),
             events["x"].astype("<f8"),
             events["y"].astype("<f8"),
@@ -235,8 +297,8 @@ try:
     )
     setattr(
         sys.modules[__name__],
-        "accumulate_warped_events_square",
-        accelerated_accumulate_warped_events_square,
+        "accumulate",
+        accelerated_accumulate,
     )
     setattr(
         sys.modules[__name__],
