@@ -8,25 +8,25 @@ parser.add_argument(
     "--vx",
     type=float,
     default=21.3,
-    help="initial X velocity (before optimization) in px/s",
+    help="X velocity in px/s",
 )
 parser.add_argument(
     "--vy",
     type=float,
     default=-0.75,
-    help="initial Y velocity (before optimization) in px/s",
+    help="Y velocity in px/s",
 )
 parser.add_argument(
     "--gamma",
     choices=["I", "pow.5", "pow.25"],
     default="pow.5",
-    help="gamma ramp function",
+    help="Gamma ramp function",
 )
 parser.add_argument(
     "--ratio",
     type=float,
     default=0.01,
-    help="remove this ratio of most active pixels",
+    help="Remove this ratio of most active pixels",
 )
 args = parser.parse_args()
 
