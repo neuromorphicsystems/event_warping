@@ -3,6 +3,7 @@ import cmaes
 import copy
 import dataclasses
 import event_stream
+import event_warping_extension
 import h5py
 import matplotlib
 import matplotlib.colors
@@ -15,8 +16,6 @@ import PIL.ImageDraw
 import PIL.ImageFont
 import scipy.optimize
 import typing
-
-EXTENSION_ENABLED = False
 
 
 def read_h5_file(path: typing.Union[pathlib.Path, str]) -> numpy.ndarray:
@@ -82,7 +81,7 @@ def unwarp(warped_events: numpy.ndarray, velocity: tuple[float, float]):
 
 
 def smooth_histogram(warped_events: numpy.ndarray):
-    raise NotImplementedError()
+    return event_warping_extension.smooth_histogram(warped_events)
 
 
 def accumulate(
@@ -90,7 +89,17 @@ def accumulate(
     events: numpy.ndarray,
     velocity: tuple[float, float],
 ):
-    raise NotImplementedError()
+    return CumulativeMap(
+        pixels=event_warping_extension.accumulate(
+            sensor_size[0],
+            sensor_size[1],
+            events["t"].astype("<f8"),
+            events["x"].astype("<f8"),
+            events["y"].astype("<f8"),
+            velocity[0],
+            velocity[1],
+        ),
+    )
 
 
 def render(
@@ -130,7 +139,15 @@ def intensity_variance(
     events: numpy.ndarray,
     velocity: tuple[float, float],
 ):
-    raise NotImplementedError()
+    return event_warping_extension.intensity_variance(
+        sensor_size[0],
+        sensor_size[1],
+        events["t"].astype("<f8"),
+        events["x"].astype("<f8"),
+        events["y"].astype("<f8"),
+        velocity[0],
+        velocity[1],
+    )
 
 
 def intensity_maximum(
@@ -138,7 +155,15 @@ def intensity_maximum(
     events: numpy.ndarray,
     velocity: tuple[float, float],
 ):
-    raise NotImplementedError()
+    return event_warping_extension.intensity_maximum(
+        sensor_size[0],
+        sensor_size[1],
+        events["t"].astype("<f8"),
+        events["x"].astype("<f8"),
+        events["y"].astype("<f8"),
+        velocity[0],
+        velocity[1],
+    )
 
 
 def optimize(
@@ -222,93 +247,3 @@ def optimize_cma(
             best_velocity = velocity
             best_heuristic = heuristic_value
     return (float(best_velocity[0]), float(best_velocity[1]))
-
-
-# monkey patch the extension
-try:
-    import event_warping_extension  # type: ignore
-    import sys
-
-    for function_name in (
-        "smooth_histogram",
-        "accumulate",
-        "intensity_variance",
-        "intensity_maximum",
-    ):
-        getattr(event_warping_extension, function_name)
-        setattr(
-            sys.modules[__name__],
-            f"original_{function_name}",
-            getattr(sys.modules[__name__], function_name),
-        )
-
-    def accelerated_accumulate(
-        sensor_size: tuple[int, int],
-        events: numpy.ndarray,
-        velocity: tuple[float, float],
-    ):
-        return CumulativeMap(
-            pixels=event_warping_extension.accumulate(  # type: ignore
-                sensor_size[0],
-                sensor_size[1],
-                events["t"].astype("<f8"),
-                events["x"].astype("<f8"),
-                events["y"].astype("<f8"),
-                velocity[0],
-                velocity[1],
-            ),
-        )
-
-    def accelerated_intensity_variance(
-        sensor_size: tuple[int, int],
-        events: numpy.ndarray,
-        velocity: tuple[float, float],
-    ):
-        return event_warping_extension.intensity_variance(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            velocity[0],
-            velocity[1],
-        )
-
-    def accelerated_intensity_maximum(
-        sensor_size: tuple[int, int],
-        events: numpy.ndarray,
-        velocity: tuple[float, float],
-    ):
-        return event_warping_extension.intensity_maximum(  # type: ignore
-            sensor_size[0],
-            sensor_size[1],
-            events["t"].astype("<f8"),
-            events["x"].astype("<f8"),
-            events["y"].astype("<f8"),
-            velocity[0],
-            velocity[1],
-        )
-
-    setattr(
-        sys.modules[__name__],
-        "smooth_histogram",
-        event_warping_extension.smooth_histogram,
-    )
-    setattr(
-        sys.modules[__name__],
-        "accumulate",
-        accelerated_accumulate,
-    )
-    setattr(
-        sys.modules[__name__],
-        "intensity_variance",
-        accelerated_intensity_variance,
-    )
-    setattr(
-        sys.modules[__name__],
-        "intensity_maximum",
-        accelerated_intensity_maximum,
-    )
-    sys.modules[__name__].__dict__["EXTENSION_ENABLED"] = True
-except (AttributeError, ImportError):
-    pass

@@ -7,7 +7,5 @@ COPY scripts /build/scripts
 COPY example.py /build/example.py
 COPY README.md /build/README.md
 
-RUN python3 -m pip install numpy
-
 WORKDIR /build
-RUN python3 setup.py develop --with-extension
+RUN python3 -m pip install -e .
