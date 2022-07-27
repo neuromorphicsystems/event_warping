@@ -18,16 +18,6 @@ import scipy.optimize
 import typing
 
 
-def read_h5_file(path: typing.Union[pathlib.Path, str]) -> numpy.ndarray:
-    data = numpy.asarray(h5py.File(path, "r")["/FalconNeuro"], dtype=numpy.uint32)
-    events = numpy.zeros(data.shape[1], dtype=event_stream.dvs_dtype)
-    events["t"] = data[3]
-    events["x"] = data[0]
-    events["y"] = data[1]
-    events["on"] = data[2] == 1
-    return events
-
-
 def read_es_file(
     path: typing.Union[pathlib.Path, str]
 ) -> tuple[int, int, numpy.ndarray]:
@@ -37,6 +27,30 @@ def read_es_file(
             decoder.height,
             numpy.concatenate([packet for packet in decoder]),
         )
+
+
+def read_h5_file(
+    path: typing.Union[pathlib.Path, str]
+) -> tuple[int, int, numpy.ndarray]:
+    data = numpy.asarray(h5py.File(path, "r")["/FalconNeuro"], dtype=numpy.uint32)
+    events = numpy.zeros(data.shape[1], dtype=event_stream.dvs_dtype)
+    events["t"] = data[3]
+    events["x"] = data[0]
+    events["y"] = data[1]
+    events["on"] = data[2] == 1
+    return numpy.max(events["x"].max()) + 1, numpy.max(events["y"]) + 1, events  # type: ignore
+
+
+def read_es_or_h5_file(
+    path: typing.Union[pathlib.Path, str]
+) -> tuple[int, int, numpy.ndarray]:
+    if pathlib.Path(path).with_suffix(".es").is_file():
+        return read_es_file(path=pathlib.Path(path).with_suffix(".es"))
+    elif pathlib.Path(path).with_suffix(".h5").is_file():
+        return read_h5_file(path=pathlib.Path(path).with_suffix(".h5"))
+    raise Exception(
+        f"neither \"{pathlib.Path(path).with_suffix('.es')}\" nor \"{pathlib.Path(path).with_suffix('.h5')}\" exist"
+    )
 
 
 @dataclasses.dataclass
@@ -81,7 +95,7 @@ def unwarp(warped_events: numpy.ndarray, velocity: tuple[float, float]):
 
 
 def smooth_histogram(warped_events: numpy.ndarray):
-    return event_warping_extension.smooth_histogram(warped_events)
+    return event_warping_extension.smooth_histogram(warped_events)  # type: ignore
 
 
 def accumulate(
@@ -90,7 +104,7 @@ def accumulate(
     velocity: tuple[float, float],
 ):
     return CumulativeMap(
-        pixels=event_warping_extension.accumulate(
+        pixels=event_warping_extension.accumulate(  # type: ignore
             sensor_size[0],
             sensor_size[1],
             events["t"].astype("<f8"),
@@ -139,7 +153,7 @@ def intensity_variance(
     events: numpy.ndarray,
     velocity: tuple[float, float],
 ):
-    return event_warping_extension.intensity_variance(
+    return event_warping_extension.intensity_variance(  # type: ignore
         sensor_size[0],
         sensor_size[1],
         events["t"].astype("<f8"),
@@ -155,7 +169,7 @@ def intensity_maximum(
     events: numpy.ndarray,
     velocity: tuple[float, float],
 ):
-    return event_warping_extension.intensity_maximum(
+    return event_warping_extension.intensity_maximum(  # type: ignore
         sensor_size[0],
         sensor_size[1],
         events["t"].astype("<f8"),

@@ -1,10 +1,18 @@
 import argparse
+import configuration
 import event_warping
 import json
+import pathlib
+
+dirname = pathlib.Path(__file__).resolve().parent
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("input", help="input ES file path")
+parser.add_argument(
+    "--input",
+    help="input ES or H5 file path",
+    default=str(dirname.parent / "recordings" / configuration.name),
+)
 parser.add_argument("--output", help="output JSON file path (defaults to stdout)")
 parser.add_argument(
     "--method",
@@ -21,13 +29,13 @@ parser.add_argument(
 parser.add_argument(
     "--vx",
     type=float,
-    default=21.3,
+    default=configuration.velocity[0],
     help="initial X velocity (before optimization) in px/s",
 )
 parser.add_argument(
     "--vy",
     type=float,
-    default=-0.75,
+    default=configuration.velocity[1],
     help="initial Y velocity (before optimization) in px/s",
 )
 parser.add_argument(
@@ -51,7 +59,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-width, height, events = event_warping.read_es_file(args.input)
+width, height, events = event_warping.read_es_or_h5_file(args.input)
 events = event_warping.without_most_active_pixels(events, ratio=args.ratio)
 
 

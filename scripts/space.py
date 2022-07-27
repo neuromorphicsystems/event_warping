@@ -9,10 +9,11 @@ import sys
 
 dirname = pathlib.Path(__file__).resolve().parent
 
-
 (dirname / "cache").mkdir(exist_ok=True)
 
-width, height, events = event_warping.read_es_file(dirname / f"{configuration.name}.es")
+width, height, events = event_warping.read_es_or_h5_file(
+    dirname.parent / "recordings" / configuration.name
+)
 events = event_warping.without_most_active_pixels(events, ratio=configuration.ratio)
 
 

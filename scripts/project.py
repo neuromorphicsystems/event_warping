@@ -4,7 +4,6 @@ import event_warping
 import matplotlib
 import matplotlib.pyplot
 import pathlib
-import svg
 
 matplotlib.pyplot.style.use("dark_background")
 matplotlib.pyplot.rc("font", size=20, family="Times New Roman")
@@ -17,9 +16,11 @@ matplotlib.rcParams["axes.linewidth"] = 1.0
 
 dirname = pathlib.Path(__file__).resolve().parent
 
-(dirname / "cache").mkdir(exist_ok=True)
+(dirname.parent / "figures").mkdir(exist_ok=True)
 
-width, height, events = event_warping.read_es_file(dirname / f"{configuration.name}.es")
+width, height, events = event_warping.read_es_or_h5_file(
+    dirname.parent / "recordings" / configuration.name
+)
 events = event_warping.without_most_active_pixels(events, ratio=configuration.ratio)
 
 cumulative_map = event_warping.accumulate(
@@ -34,15 +35,15 @@ event_warping.render(
     gamma=lambda image: image ** (1 / 2),
 ).save(
     str(
-        dirname
-        / "cache"
+        dirname.parent
+        / "figures"
         / f"{configuration.name}_project_{configuration.velocity[0]}_{configuration.velocity[1]}_{configuration.ratio}.png"
     )
 )
 
 svg_path = (
-    dirname
-    / "cache"
+    dirname.parent
+    / "figures"
     / f"{configuration.name}_histogram_{configuration.velocity[0]}_{configuration.velocity[1]}_{configuration.ratio}.svg"
 )
 event_warping.render_histogram(
@@ -50,4 +51,3 @@ event_warping.render_histogram(
     svg_path,
     f"{configuration.name}, vx={configuration.velocity[0]}, vy={configuration.velocity[1]}, drop={configuration.ratio}",
 )
-svg.fix(svg_path)

@@ -1,9 +1,9 @@
 *.egg-info
-build
-__pycache__
-*.es
-*.h5
-cache
-*.png
 *.so
-*.sketch
+build
+dist
+__pycache__
+__pypackages__
+scripts/cache
+figures
+recordings

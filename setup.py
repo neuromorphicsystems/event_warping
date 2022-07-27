@@ -8,18 +8,13 @@ with open("README.md") as file:
     long_description = file.read()
 
 
-def build_ext_factory(parameters):
-    import setuptools.command.build_ext
+class build_ext(setuptools.command.build_ext.build_ext):
+    def finalize_options(self):
+        setuptools.command.build_ext.build_ext.finalize_options(self)
+        builtins.__NUMPY_SETUP__ = False  # type: ignore
+        import numpy
 
-    class build_ext(setuptools.command.build_ext.build_ext):
-        def finalize_options(self):
-            setuptools.command.build_ext.build_ext.finalize_options(self)
-            builtins.__NUMPY_SETUP__ = False  # type: ignore
-            import numpy
-
-            self.include_dirs.append(numpy.get_include())
-
-    return build_ext(parameters)
+        self.include_dirs.append(numpy.get_include())
 
 
 extra_args = []
@@ -39,12 +34,12 @@ setuptools.setup(
     setup_requires=['numpy'],
     install_requires=[
         "cmaes >= 0.8.2",
-        "event_stream >= 1.4",
-        "h5py >= 3.0",
-        "matplotlib >= 3.0",
-        "numpy >= 1.20",
-        "pillow >= 9.0",
-        "scipy >= 1.8",
+        "event_stream >= 1.4.1",
+        "h5py >= 3.7.0",
+        "matplotlib >= 3.5.2",
+        "numpy >= 1.23.1",
+        "pillow >= 9.2.0",
+        "scipy >= 1.8.1",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -63,5 +58,5 @@ setuptools.setup(
             extra_link_args=extra_args,
         ),
     ],
-    cmdclass={"build_ext": build_ext_factory},  # type: ignore
+    cmdclass={"build_ext": build_ext},
 )
