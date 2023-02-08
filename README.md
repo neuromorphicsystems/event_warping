@@ -9,11 +9,11 @@ This contains the implementation of the paper "Dense Piecewise Contrast Maximisa
 <!-- </p> -->
 
 <p align="center">
-  <img alt="Light" src="./img/before_correction.gif" width="30%">
+  <img alt="Light" src="./img/before_correction.gif" width="24%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/correction_algorithm.svg" width="30%">
+  <img alt="Dark" src="./img/Correction_algorithm_architecture.png" width="30%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/after_correction.gif" width="30%">
+  <img alt="Dark" src="./img/after_correction.gif" width="24.5%">
 </p>
 
 ## Install
