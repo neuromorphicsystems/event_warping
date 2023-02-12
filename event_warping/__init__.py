@@ -674,10 +674,20 @@ def weight_f10(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[x < EDGEPX]                                  = 0
         eventmap.pixels[y > height+vy-EDGEPX]                        = 0
         eventmap.pixels[y < EDGEPX]                                  = 0
-        eventmap.pixels[y > (vy/vx)*(-x+width)+vy+height-EDGEPX]     = 0
-        eventmap.pixels[y < (-vy/vx)*x+vy+EDGEPX]                    = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                    = 0
+        eventmap.pixels[y < (vy/vx)*(-x+width)+vy-EDGEPX]            = 0
+        eventmap.pixels[y > (-vy/-x)*x+vy-EDGEPX]                    = 0
+    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
+
+    # if remove_edge_pixels:
+    #     eventmap.pixels[x > width+vx-EDGEPX]                         = 0
+    #     eventmap.pixels[x < EDGEPX]                                  = 0
+    #     eventmap.pixels[y > height+vy-EDGEPX]                        = 0
+    #     eventmap.pixels[y < EDGEPX]                                  = 0
+    #     eventmap.pixels[y > (vy/vx)*(-x+width)+vy+height-EDGEPX]     = 0
+    #     eventmap.pixels[y < (-vy/vx)*x+vy+EDGEPX]                    = 0
+    # eventmap.pixels[numpy.isnan(eventmap.pixels)]                    = 0
+    # return eventmap.pixels
 
 def intensity_weighted_variance(sensor_size: tuple[int, int],events: numpy.ndarray,velocity: tuple[float, float]):
     WEIGHT=True

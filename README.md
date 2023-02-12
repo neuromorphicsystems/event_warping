@@ -65,7 +65,10 @@ Expected output:
 
 ## Scripts
 
-Python files in _scripts_ implement different methods to estimate the visual speed (px/s) of ISS recordings and generate figures to understand why the optimization process (contrast maximization) fails in some cases.
+Python files in _scripts_ implement two different methods to estimate the visual speed (px/s) for the ISS recordings:
+
+1. The implementation of the standard Contrast Maximisation framework which uses the variance as an objective function.
+2. The method proposed in this paper which divides the Contrast Maximisation process into multiple peicewise fuctions and apply multiplicative weight to remove the global maxima to preserving the correct motion parameter.
 
 _scripts/configuration.py_ defines the parameters (file name, intial velocity...) used by the other script files.
 
@@ -74,9 +77,16 @@ _scripts/configuration.py_ defines the parameters (file name, intial velocity...
 -   _plot_space.py_ generates a 2D optimization space plot. _space.py_ must be run first.
 -   _project.py_ generates a contrast maximized image and its histogram using the velocity in _configuration.py_.
 -   _space_1d.py_ calculates the image contrast for every vx (resp. vy) at constant vy (resp. vx).
--   _space.py_ calculates the image contast for every pair (vx, vy). This script takes a long time to run.
+- _peicewise_objective_algo_space.py_ contains the original implementation of the peicewise contrast maximisation algorithm. It takes input `.es` or `.h5` file and output the corrected loss landscape. There is not optimisation included in this, instead it does an exhaustive search for the parameter but in the corrected space. This takes a long time to run.
+-   _space.py_ calculates the image contast for every pair (vx, vy). You can switch between the standard method and proposed approach using the following steps:
 
-## Papers
+```sh
+    sudo apt install -y build-essentials
+```
+
+There is not optimisation included in this, instead it does an exhaustive search for the parameter but in the corrected space. This takes a long time to run.
+
+## References
 
 ## Install
 
