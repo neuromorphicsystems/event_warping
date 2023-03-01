@@ -9,11 +9,11 @@ This contains the implementation of the paper "Dense Piecewise Contrast Maximisa
 <!-- </p> -->
 
 <p align="center">
-  <img alt="Light" src="./img/before_correction.gif" width="24%">
+  <img alt="Light" src="./img/before_correction.gif" width="23%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/Correction_algorithm_architecture.png" width="30%">
+  <img alt="Dark" src="./img/framework.png" width="44%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/after_correction.gif" width="24.5%">
+  <img alt="Dark" src="./img/after_correction.gif" width="24%">
 </p>
 
 ## Install
@@ -81,7 +81,7 @@ _scripts/configuration.py_ defines the parameters (file name, intial velocity...
 -   _space.py_ calculates the image contast for every pair (vx, vy). You can switch between the standard method and proposed approach using the following steps:
 
 ```sh
-    sudo apt install -y build-essentials
+    weight
 ```
 
 There is not optimisation included in this, instead it does an exhaustive search for the parameter but in the corrected space. This takes a long time to run.

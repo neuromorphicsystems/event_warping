@@ -1,11 +1,22 @@
-import json,os,sys,pathlib,skimage,PIL.Image,itertools,event_warping,concurrent.futures
+import concurrent.futures
+import os
+# import configuration
+import event_warping
+import itertools
+import json
 import numpy as np
+import pathlib
+import sys
 import matplotlib.pyplot as plt
+import PIL.Image
 from PIL import Image,ImageDraw
 from tqdm import tqdm
+import skimage
 from scipy import ndimage
 
-np.seterr(divide='ignore', invalid='ignore')
+dirname = pathlib.Path(__file__).resolve().parent
+(dirname / "cache").mkdir(exist_ok=True)
+
 variance_loss       = []
 fp                  = 0
 fp1                 = 0
@@ -13,18 +24,17 @@ counting            = 0
 fun_idx             = 0
 SAVE                = 1
 WEIGHT              = 1
-VIDEOS              = ["20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5"]
-OBJECTIVE           = ["variance","weighted_variance"]
-FILENAME            = VIDEOS[0]
-HEURISTIC           = OBJECTIVE[1]
-VELOCITY_RANGE      = (-30,30)
+OBJECTIVE           = ["variance","weightVar","max"]
+FILENAME            = "20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5"
+HEURISTIC           = OBJECTIVE[0]
+VELOCITY_RANGE      = (-30.0, 30.0)
 RESOLUTION          = 20
-TMAX                = 60e6
+TMAX                = 20e6
 RATIO               = 0.00001
 imgpath             = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/img/weight_map"
 READFROM            = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/data/es/NADIR/"
 SAVEFILETO          = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/img/"
-scalar_velocities   = np.linspace(VELOCITY_RANGE[0],VELOCITY_RANGE[1],RESOLUTION)
+scalar_velocities   = np.round(np.linspace(VELOCITY_RANGE[0],VELOCITY_RANGE[1],RESOLUTION))
 nVel                = len(scalar_velocities)
 
 def deleteimg():
@@ -52,17 +62,12 @@ def without_most_active_pixels(events: np.ndarray, ratio: float):
         <= np.percentile(count, 100.0 * (1.0 - ratio))
     ]
 
-# events = event_warping.read_h5_file(READFROM + FILENAME)
-# width, height= 241, 181
 width, height, events = event_warping.read_es_file(READFROM + FILENAME + ".es")
-width+=1
-height+=1
 events = without_most_active_pixels(events, ratio=0.000001)
-# TMAX = events["t"][-1]
 ii = np.where(np.logical_and(events["t"]>1, events["t"]<(TMAX)))
 events = events[ii]
 t = (events["t"][-1]-events["t"][0])/1e6
-EDGEPX = t
+EDGEPX  = np.round(t)
 print(f"{len(events)=}")
 
 def weight_f1(vx,vy,remove_edge_pixels=False):
@@ -143,7 +148,7 @@ def weight_f2(vx,vy,remove_edge_pixels=False):
     [i,j] = np.where((x > width) & (x < vx) & (y <= (vy*x)/vx) & (y > 0))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 11:
-    [i,j] = np.where((x >= vx) & (x <= vx+width) & (y >= (vy*(x-width))/vx) & (y < vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y >= (vy*(x-width))/vx) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 12:
     [i,j] = np.where((x > width) & (x < vx) & (y > (vy/vx)*(x-width-vx)+vy+height) & (y < vy+height))
@@ -213,13 +218,13 @@ def weight_f4(vx,vy,remove_edge_pixels=False):
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     middlePlan = (vy)/y[i,j]
     # Condition 1:
-    [i,j] = np.where((x > vx) & (x < width) & (y >= height) & (y <= vy))
+    [i,j] = np.where((x > vx) & (x < width) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 2:
     [i,j] = np.where((x > 0) & (x < vx) & (y > height) & (y < (vy*x)/vx))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 3:
-    [i,j] = np.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 4:
     [i,j] = np.where((x > width) & (x < vx+width) & (y <= ((vy*(x-width))/vx)+height) & (y > vy))
@@ -228,20 +233,20 @@ def weight_f4(vx,vy,remove_edge_pixels=False):
     [i,j] = np.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i-1,j-1]+height+vy)
     # Condition 7:
-    [i,j] = np.where((x > 0) & (x < vx) & (y > 0) & (y < (vy*x)/vx) & (y <= height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > 0) & (y < (vy*x)/vx) & (y <height))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     # Condition 8:
-    [i,j] = np.where((x > 0) & (x < vx) & (y > (vy*x)/vx) & (y < height))
-    eventmap.pixels[i,j] *= (vx)/x[i,j]
+    [i,j] = np.where((x > 0) & (x < vx) & (y >= (vy*x)/vx) & (y < height))
+    eventmap.pixels[i+1,j+1] *= (vx)/x[i,j]
     # Condition 9:
-    [i,j] = np.where((x >= vx) & (x < width) & (y > vy) & (y <= vy+height))
+    [i,j] = np.where((x > vx) & (x < width) & (y > vy) & (y <= vy+height))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i-1,j-1]+height+vy)
     # Condition 10:
-    [i,j] = np.where((x > 0) & (x <= vx) & (y > (vy/vx)*x) & (y < (vy/vx)*x+height) & (y >= height) & (y < vy))
-    eventmap.pixels[i,j] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
+    [i,j] = np.where((x > 0) & (x <= vx) & (y >= (vy/vx)*x) & (y >= height) & (y < vy))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 11:
-    [i,j] = np.where((x >= 0) & (x <= vx) & (y <= (vy/vx)*x+height) & (y > vy) & (y <= height+vy))
-    eventmap.pixels[i,j] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
+    [i,j] = np.where((x > 0) & (x <= vx) & (y <= (vy/vx)*x+height) & (y > vy))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 12:
     [i,j] = np.where((x >= width) & (x <= vx+width) & (y <= height) & (y > (vy/vx)*(x-width)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
@@ -254,8 +259,8 @@ def weight_f4(vx,vy,remove_edge_pixels=False):
         eventmap.pixels[x < EDGEPX]                     = 0
         eventmap.pixels[y > height+vy-EDGEPX]           = 0
         eventmap.pixels[y < EDGEPX]                     = 0
-        eventmap.pixels[y < (vy/vx)*(x-width)+EDGEPX]   = 0
-        eventmap.pixels[y > (vy/vx)*x+height-EDGEPX]    = 0
+        eventmap.pixels[y < ((vy/vx)*(x-width))+EDGEPX*2]   = 0
+        eventmap.pixels[y > ((vy/vx)*x+height)-EDGEPX*2]    = 0
     eventmap.pixels[np.isnan(eventmap.pixels)]          = 0
     return eventmap.pixels
 
@@ -306,27 +311,27 @@ def weight_f5(vx,vy,remove_edge_pixels=False):
     return eventmap.pixels
 
 def weight_f6(vx,vy,remove_edge_pixels=False):
-    # Condition 1:
+    # Condition 5:
     [i,j] = np.where((x > vx) & (x < width) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vy)/(y[i,j])
     middlePlan = (vy)/(y[i,j])
-    # Condition 2:
+    # Condition 1:
     [i,j] = np.where((x > vx) & (x < width) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
-    # Condition 3:
+    # Condition 2:
     [i,j] = np.where((x > 0) & (x < vx) & (y > (-vy/vx)*x+vy+height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
-    # Condition 4:
+    # Condition 3:
     [i,j] = np.where((x > width) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
-    # Condition 5:
+    # Condition 4:
     [i,j] = np.where((x > vx) & (x < width) & (y > vy) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 6:
-    [i,j] = np.where((x > 0) & (x < vx) & (y <= (-vy/vx)*x+vy+height) & (y >= (-vy/vx)*x+vy) & (y > height) & (y < vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y < (-vy/vx)*x+vy+height) & (y > (-vy/vx)*x+vy) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 7:
-    [i,j] = np.where((x > 0) & (x < vx) & (y >= (-vy/vx)*x+vy) & (y < height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > (-vy/vx)*x+vy) & (y < height))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 8:
     [i,j] = np.where((x > 0) & (x < vx) & (y > vy) & (y < (-vy/vx)*x+vy+height))
@@ -388,7 +393,7 @@ def weight_f7(vx,vy,remove_edge_pixels=False):
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 10:
     [i,j] = np.where((x >= width) & (x < vx) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i+1,j+1]+vy*x[i+1,j+1])
     # Condition 11:
     [i,j] = np.where((x > 0) & (x < width) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
@@ -410,52 +415,40 @@ def weight_f7(vx,vy,remove_edge_pixels=False):
     return eventmap.pixels
 
 def weight_f8(vx,vy,remove_edge_pixels=False):
-    # Condition 1:
-    [i,j] = np.where((x > 0) & (x < width) & (y > 0) & (y < (vy/vx)*x) & (y > 0))
-    eventmap.pixels[i+1,j+1] *= vy/y[i,j]
-    middlePlan = vy/y[i,j]
-    # Condition 2:
-    [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
-    # Condition 3:
-    [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > 0) & (y < height))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
-    # Condition 4:
-    [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > vy) & (y < vy+height))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 5:
     [i,j] = np.where((x > 0) & (x < width) & (y > (vy/vx)*x) & (y <= height))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
+    middlePlan = vx/x[i,j]
+    # Condition 1:
+    [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x))
+    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    # Condition 4:
+    [i,j] = np.where((x > 0) & (x < width) & (y > 0) & (y <= (vy/vx)*x) & (y < height))
+    eventmap.pixels[i+1,j+1] *= vy/y[i,j]
     # Condition 6:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y <= vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 7:
-    [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width)+height) & (y < height+vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width)+height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 8:
-    [i,j] = np.where((x >= width) & (x < vx) & (y < (vy/vx)*x) & (y >= 0) & (y < height))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
+    [i,j] = np.where((x >= width) & (x < vx) & (y < (vy/vx)*(x)) & (y >= 0))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 9:
-    [i,j] = np.where((x >= width) & (x < vx) & (y < (vy/vx)*x) & (y >= height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
+    [i,j] = np.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*(x)) & (y >= 0) & (y < height))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 10:
-    [i,j] = np.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*x) & (y >= 0) & (y < height))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
+    [i,j] = np.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*(x)) & (y >= height) & (y < vy))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 11:
-    [i,j] = np.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*x) & (y >= height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
-    # Condition 12:
     [i,j] = np.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < vy+height) & (y > vy))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i-1,j-1]+vy*x[i-1,j-1])
+    # Condition 12:
+    [i,j] = np.where((x >= 0) & (x < width) & (y > (vy/vx)*(x-width)+height) & (y < vy+height) & (y > vy))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i-1,j-1]+vy*x[i-1,j-1])
     # Condition 13:
-    [i,j] = np.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < vy) & (y > height))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
-    # Condition 14:
-    [i,j] = np.where((x >= 0) & (x < width) & (y > (vy/vx)*(x-width)+height) & (y < vy) & (y > height))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
-    # Condition 15:
-    [i,j] = np.where((x >= 0) & (x < width) & (y > (vy/vx)*(x-width)+height) & (y > vy) & (y < vy+height))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
+    [i,j] = np.where((x > 0) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < vy) & (y > height))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i-1,j-1]+vy*x[i-1,j-1])
 
     if remove_edge_pixels:
         eventmap.pixels[x > width+vx-EDGEPX]                         = 0
@@ -468,23 +461,23 @@ def weight_f8(vx,vy,remove_edge_pixels=False):
     return eventmap.pixels
 
 def weight_f9(vx,vy,remove_edge_pixels=False):
-    # Condition 1:
+    # Condition 2:
     [i,j] = np.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     middlePlan = (vy)/(-y[i,j]+height+vy)
-    # Condition 2:
+    # Condition 1:
     [i,j] = np.where((x > width) & (x < vx) & (y > (-vy/vx)*x+height+vy) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= middlePlan[0]
-    # Condition 3:
+    # Condition 1:
     [i,j] = np.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[0]
-    # Condition 4:
+    # Condition 1:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= middlePlan[0]
-    # Condition 5:
+    # Condition 3:
     [i,j] = np.where((x > 0) & (x < width) & (y < (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
-    # Condition 6:
+    # Condition 4:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y < (vy/vx)*(-x+width+vx)) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
     # Condition 5:
@@ -572,8 +565,8 @@ def weight_f10(vx,vy,remove_edge_pixels=False):
         eventmap.pixels[x < EDGEPX]                                  = 0
         eventmap.pixels[y > height+vy-EDGEPX]                        = 0
         eventmap.pixels[y < EDGEPX]                                  = 0
-        eventmap.pixels[y < (vy/vx)*(-x+width)+vy-EDGEPX]            = 0
-        eventmap.pixels[y > (-vy/-x)*x+vy-EDGEPX]                    = 0
+        eventmap.pixels[y > (vy/vx)*(-x+width)+vy+height-EDGEPX]     = 0
+        eventmap.pixels[y < (-vy/vx)*x+vy+EDGEPX]                    = 0
     eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
@@ -601,7 +594,7 @@ def saveimg(contrastmap,var,fun_idx,draw=False):
         d.line((vx+width,0, vx+width,height+vy), fill=128, width = 1)
         d.text((vx+width-40,0), "w+vx*t", fill=(0,255,0))
     new_image = image.resize((500, 500))
-    im1 = new_image.save("img/weight_map/eventmap_vy_" + str(fieldy*t)  + "_vx_" + str(fieldx*t) + "_" + "var_" + str(var) + ".jpg")
+    im1 = new_image.save("img/weight_map/f_" + str(fun_idx) +"_vy_" + str(fieldy*t)  + "_vx_" + str(fieldx*t) + "_" + "var_" + str(var) + ".jpg")
     fun_idx=0
 
 def varianceObj(data):
@@ -611,10 +604,22 @@ def varianceObj(data):
     variance = sum(squared_differences) / (n - 1)
     return variance
 
+def smoothing(evmap,sig):
+    return skimage.filters.gaussian(evmap, sigma=(sig, sig), channel_axis=False)
+
+def smoothconv(evmap,blr):
+    pix_blur = (blr,blr)
+    k = k = np.ones(pix_blur) / float(pix_blur[0]*pix_blur[1])
+    return ndimage.convolve(evmap, k, mode='mirror')
+
 def variance(evmap):
     flatimg = evmap.flatten()
     res = flatimg[flatimg != 0]
     return np.var(res)
+
+def movingaverage(interval, window_size):
+    window= np.ones(int(window_size))/float(window_size)
+    return np.convolve(interval, window, 'same')
 
 if SAVE:
     deleteimg()
@@ -632,14 +637,14 @@ for iVely in range(0,nVel):
         
         x = np.tile(np.arange(1, eventmap.pixels.shape[1]+1), (eventmap.pixels.shape[0], 1))
         y = np.tile(np.arange(1, eventmap.pixels.shape[0]+1), (eventmap.pixels.shape[1], 1)).T
-
+        
         if WEIGHT:
             #f_1(x,y)
             if fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height:
                 fun_idx                 += 1
                 evmap                   = weight_f1(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
             
             #f_2(x,y)
@@ -647,7 +652,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 2
                 evmap                   = weight_f2(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_3(x,y)
@@ -655,7 +660,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 3
                 evmap                   = weight_f3(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_4(x,y)
@@ -663,7 +668,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 4
                 evmap                   = weight_f4(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_5(x,y)
@@ -671,7 +676,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 5
                 evmap                   = weight_f5(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_6(x,y)
@@ -679,40 +684,41 @@ for iVely in range(0,nVel):
                 fun_idx                 += 6
                 evmap                   = weight_f6(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_7(x,y)
-            if (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
+            if np.abs(fieldy*t) >= np.abs(fieldx*t) and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or np.abs(fieldy*t) >= np.abs(fieldx*t) and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
                 fun_idx                 += 7
                 evmap                   = weight_f7(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_8(x,y)
-            if  (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
+            if np.abs(fieldy*t) < np.abs(fieldx*t) and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or np.abs(fieldy*t) < np.abs(fieldx*t) and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
                 fun_idx                 += 8
                 evmap                   = weight_f8(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_9(x,y)
-            if (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
+            if np.abs(fieldy*t) >= np.abs(fieldx*t) and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or np.abs(fieldy*t) >= np.abs(fieldx*t) and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
                 fun_idx                 += 9
                 evmap                   = weight_f9(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
 
             #f_10(x,y)
-            if  (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
+            if np.abs(fieldy*t) < np.abs(fieldx*t) and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or np.abs(fieldy*t) < np.abs(fieldx*t) and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
                 fun_idx                 += 10
                 evmap                   = weight_f10(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=False)
+                saveimg(evmap,var,fun_idx,draw=True)
                 fun_idx=0
+
             else:
                 var = variance(eventmap.pixels)
         else:
@@ -724,7 +730,7 @@ for iVely in range(0,nVel):
     fp1=0
 sys.stdout.write("\n")
 with open(
-        f"{SAVEFILETO + FILENAME}_{HEURISTIC}_{VELOCITY_RANGE[0]}_{VELOCITY_RANGE[1]}_{RESOLUTION}_{RATIO}_{WEIGHT}.json",
+        f"{SAVEFILETO + FILENAME}_{HEURISTIC}_{VELOCITY_RANGE[0]}_{VELOCITY_RANGE[1]}_{RESOLUTION}_{RATIO}.json",
         "w",
     ) as output:
         json.dump(variance_loss, output)
@@ -741,16 +747,16 @@ new_im1 = im1.resize((400, 400))
 # dr = ImageDraw.Draw(new_im1)
 # f1_pos = np.where(scalar_velocities*t<width)
 # f1_neg = np.where(scalar_velocities*t<-width)
-# dr.line((0,scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width,scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 1)
-# dr.line((scalar_velocities[f1_pos[0][-1]+1]*t,0,scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width), fill=128, width = 1)
-# dr.line((0,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 1)
-# dr.line((new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,0,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width), fill=128, width = 1)
-# dr.line((0,0,scalar_velocities[f1_pos[0][-1]+1]*t,scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 1)
-# dr.line((0,new_im1.width,scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 1)
-# dr.line((new_im1.width,0,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 1)
-# dr.line((new_im1.width,new_im1.width,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 1)
-# dr.line((0,np.round(new_im1.width/2),new_im1.width,np.round(new_im1.width/2)), fill=128, width = 1)
-# dr.line((np.round(new_im1.width/2),0,np.round(new_im1.width/2),new_im1.width), fill=128, width = 1)
+# dr.line((0,scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width,scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 3)
+# dr.line((scalar_velocities[f1_pos[0][-1]+1]*t,0,scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width), fill=128, width = 3)
+# dr.line((0,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 3)
+# dr.line((new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,0,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width), fill=128, width = 3)
+# dr.line((0,0,scalar_velocities[f1_pos[0][-1]+1]*t,scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 3)
+# dr.line((0,new_im1.width,scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 3)
+# dr.line((new_im1.width,0,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 3)
+# dr.line((new_im1.width,new_im1.width,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t,new_im1.width-scalar_velocities[f1_pos[0][-1]+1]*t), fill=128, width = 3)
+# dr.line((0,np.round(new_im1.width/2),new_im1.width,np.round(new_im1.width/2)), fill=128, width = 3)
+# dr.line((np.round(new_im1.width/2),0,np.round(new_im1.width/2),new_im1.width), fill=128, width = 3)
 
-im1 = new_im1.save(SAVEFILETO+FILENAME+"_"+str(VELOCITY_RANGE[0])+"_"+str(VELOCITY_RANGE[1])+"_"+str(RESOLUTION)+"_"+str(RATIO)+"_" +str(WEIGHT) +".png")
+im1 = new_im1.save("./img/"+FILENAME+"_"+str(VELOCITY_RANGE[0])+"_"+str(VELOCITY_RANGE[1])+"_"+str(RESOLUTION)+"_"+str(RATIO)+"_" +str(WEIGHT) +".jpg")
 new_im1.show()
