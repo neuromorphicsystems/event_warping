@@ -9,7 +9,7 @@ import matplotlib
 import matplotlib.colors
 import matplotlib.pyplot
 import pathlib
-import numpy
+import numpy as np
 import PIL.Image
 import PIL.ImageChops
 import PIL.ImageDraw
@@ -17,15 +17,14 @@ import PIL.ImageFont
 import scipy.optimize
 import typing
 
-
 def read_es_file(
     path: typing.Union[pathlib.Path, str]
-) -> tuple[int, int, numpy.ndarray]:
+) -> tuple[int, int, np.ndarray]:
     with event_stream.Decoder(path) as decoder:
         return (
             decoder.width,
             decoder.height,
-            numpy.concatenate([packet for packet in decoder]),
+            np.concatenate([packet for packet in decoder]),
         )
 
 
@@ -55,53 +54,54 @@ def read_es_or_h5_file(
 
 @dataclasses.dataclass
 class CumulativeMap:
-    pixels: numpy.ndarray
+    pixels: np.ndarray
 
 
-def without_most_active_pixels(events: numpy.ndarray, ratio: float):
+def without_most_active_pixels(events: np.ndarray, ratio: float):
     assert ratio >= 0.0 and ratio <= 1.0
-    count = numpy.zeros((events["x"].max() + 1, events["y"].max() + 1), dtype="<u8")
-    numpy.add.at(count, (events["x"], events["y"]), 1)  # type: ignore
+    count = np.zeros((events["x"].max() + 1, events["y"].max() + 1), dtype="<u8")
+    np.add.at(count, (events["x"], events["y"]), 1)  # type: ignore
     return events[
         count[events["x"], events["y"]]
-        <= numpy.percentile(count, 100.0 * (1.0 - ratio))
+        <= np.percentile(count, 100.0 * (1.0 - ratio))
     ]
 
-def with_most_active_pixels(events: numpy.ndarray, ratio: float):
+def with_most_active_pixels(events: np.ndarray, ratio: float):
     return events[events["x"], events["y"]]
 
 # velocity in px/us
-def warp(events: numpy.ndarray, velocity: tuple[float, float]):
-    warped_events = numpy.array(
+def warp(events: np.ndarray, velocity: tuple[float, float]):
+    warped_events = np.array(
         events, dtype=[("t", "<u8"), ("x", "<f8"), ("y", "<f8"), ("on", "?")]
     )
     warped_events["x"] -= velocity[0] * warped_events["t"]
     warped_events["y"] -= velocity[1] * warped_events["t"]
     return warped_events
 
-def unwarp(warped_events: numpy.ndarray, velocity: tuple[float, float]):
-    events = numpy.zeros(
+def unwarp(warped_events: np.ndarray, velocity: tuple[float, float]):
+    events = np.zeros(
         len(warped_events),
         dtype=[("t", "<u8"), ("x", "<u2"), ("y", "<u2"), ("on", "?")],
     )
     events["t"] = warped_events["t"]
-    events["x"] = numpy.round(
+    events["x"] = np.round(
         warped_events["x"] + velocity[0] * warped_events["t"]
     ).astype("<u2")
-    events["y"] = numpy.round(
+    events["y"] = np.round(
         warped_events["y"] + velocity[1] * warped_events["t"]
     ).astype("<u2")
     events["on"] = warped_events["on"]
     return events
 
 
-def smooth_histogram(warped_events: numpy.ndarray):
-    return event_warping_extension.smooth_histogram(warped_events)  # type: ignore
+
+def smooth_histogram(warped_events: np.ndarray):
+    return event_warping_extension.smooth_histogram(warped_events)
 
 
 def accumulate(
     sensor_size: tuple[int, int],
-    events: numpy.ndarray,
+    events: np.ndarray,
     velocity: tuple[float, float],
 ):
     return CumulativeMap(
@@ -119,21 +119,21 @@ def accumulate(
 def render(
     cumulative_map: CumulativeMap,
     colormap_name: str,
-    gamma: typing.Callable[[numpy.ndarray], numpy.ndarray],
+    gamma: typing.Callable[[np.ndarray], np.ndarray],
     bounds: typing.Optional[tuple[float, float]] = None,
 ):
     colormap = matplotlib.pyplot.get_cmap(colormap_name)
     if bounds is None:
         bounds = (cumulative_map.pixels.min(), cumulative_map.pixels.max())
     scaled_pixels = gamma(
-        numpy.clip(
+        np.clip(
             (cumulative_map.pixels - bounds[0]) / (bounds[1] - bounds[0]),
             0.0,
             1.0,
         )
     )
     image = PIL.Image.fromarray(
-        (colormap(scaled_pixels)[:, :, :3] * 255).astype(numpy.uint8)  # type: ignore
+        (colormap(scaled_pixels)[:, :, :3] * 255).astype(np.uint8)  # type: ignore
     )
     return image.transpose(PIL.Image.FLIP_TOP_BOTTOM)
 
@@ -150,7 +150,7 @@ def render_histogram(cumulative_map: CumulativeMap, path: pathlib.Path, title: s
 
 def intensity_variance(
     sensor_size: tuple[int, int],
-    events: numpy.ndarray,
+    events: np.ndarray,
     velocity: tuple[float, float],
 ):
     return event_warping_extension.intensity_variance(  # type: ignore
@@ -163,43 +163,43 @@ def intensity_variance(
         velocity[1],
     )
 def variance_loss(evmap):
-    flatimg = evmap.flatten()
-    res = flatimg[flatimg != 0]
-    return numpy.var(res)
+    flating = evmap.flatten()
+    res = flating[flating != 0]
+    return np.var(res)
 
 def weight_f1(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x > vx) & (x < width) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] = eventmap.pixels[i+1,j+1]
     # Condition 2:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/x[i,j]
     # Condition 3:
-    [i,j] = numpy.where((x >= vx) & (x <= width) & (y > 0) & (y < vy))
+    [i,j] = np.where((x >= vx) & (x <= width) & (y > 0) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     # Condition 4:
-    [i,j] = numpy.where((x >= width) & (x <= width+vx) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x >= width) & (x <= width+vx) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 5:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y > height) & (y < height+vy))
+    [i,j] = np.where((x > vx) & (x < width) & (y > height) & (y < height+vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 6:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > 0) & (y < ((vy*x)/(vx))))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > 0) & (y < ((vy*x)/(vx))))
     eventmap.pixels[i+1,j+1] *= (vy/y[i,j])
     # Condition 7:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y >= ((vy*x)/(vx))) & (y < vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y >= ((vy*x)/(vx))) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx)/x[i,j]
     # Condition 8:
-    [i,j] = numpy.where((x >= width) & (x <= width+vx) & (y < height+vy) & (y > (((vy*(x-width))/(vx))+height)))
+    [i,j] = np.where((x >= width) & (x <= width+vx) & (y < height+vy) & (y > (((vy*(x-width))/(vx))+height)))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 9:
-    [i,j] = numpy.where((x >= width) & (x <= width+vx) & (y > height) & (y <= (((vy*(x-width))/(vx))+height)))
+    [i,j] = np.where((x >= width) & (x <= width+vx) & (y > height) & (y <= (((vy*(x-width))/(vx))+height)))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 10:
-    [i,j] = numpy.where((x > width) & (x < width+vx) & (y >= ((vy*(x-width))/(vx))) & (y < vy))
+    [i,j] = np.where((x > width) & (x < width+vx) & (y >= ((vy*(x-width))/(vx))) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 11:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > height) & (y <= (((vy*x)/(vx))+height)))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > height) & (y <= (((vy*x)/(vx))+height)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*height-vx*y[i,j]+vy*x[i,j])
     
     if remove_edge_pixels:
@@ -209,49 +209,49 @@ def weight_f1(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                         = 0
         eventmap.pixels[y < ((vy*(x-width))/(vx))+EDGEPX]   = 0
         eventmap.pixels[y > (((vy*x)/(vx))+height)-EDGEPX]  = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]              = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]              = 0
     return eventmap.pixels
 
 def weight_f2(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y >= (vy*x)/vx) & (y < vy))
+    [i,j] = np.where((x > 0) & (x < width) & (y >= (vy*x)/vx) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx)/x[i,j]
     middlePlan = (vx)/x[i,j]
     # Condition 2:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y >= vy) & (y < height))
+    [i,j] = np.where((x >= width) & (x < vx) & (y >= vy) & (y < height))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 3:
-    [i,j] = numpy.where((x >= width) & (x <= vx) & (y >= (vy*x)/vx) & (y < vy))
+    [i,j] = np.where((x >= width) & (x <= vx) & (y >= (vy*x)/vx) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 4:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y >= height) & (y <= (vy/vx)*(x-width-vx)+vy+height))
+    [i,j] = np.where((x >= width) & (x < vx) & (y >= height) & (y <= (vy/vx)*(x-width-vx)+vy+height))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 5:
-    [i,j] = numpy.where((x > 0) & (x <= width) & (y > 0) & (y < (vy*x)/vx))
+    [i,j] = np.where((x > 0) & (x <= width) & (y > 0) & (y < (vy*x)/vx))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     # Condition 6:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y >= height) & (y <= (vy/vx)*(x-width-vx)+vy+height))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y >= height) & (y <= (vy/vx)*(x-width-vx)+vy+height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 7:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width-vx)+vy+height) & (y < height+vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width-vx)+vy+height) & (y < height+vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 8:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > vy) & (y < height))
+    [i,j] = np.where((x > 0) & (x < width) & (y > vy) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vx)/x[i,j]
     # Condition 9:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > vy) & (y < height))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 10:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y <= (vy*x)/vx) & (y > 0))
+    [i,j] = np.where((x > width) & (x < vx) & (y <= (vy*x)/vx) & (y > 0))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 11:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y >= (vy*(x-width))/vx) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
+    [i,j] = np.where((x >= vx) & (x <= vx+width) & (y >= (vy*(x-width))/vx) & (y < vy))
+    eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 12:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > (vy/vx)*(x-width-vx)+vy+height) & (y < vy+height))
+    [i,j] = np.where((x > width) & (x < vx) & (y > (vy/vx)*(x-width-vx)+vy+height) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i-1,j-1]+vy*x[i-1,j-1])
     # Condition 13:
-    [i,j] = numpy.where((x > 0) & (x <= width) & (y < (vy/vx)*x+height) & (y >= height))
+    [i,j] = np.where((x > 0) & (x <= width) & (y < (vy/vx)*x+height) & (y >= height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i-1,j-1]+vy*x[i-1,j-1])
     
     if remove_edge_pixels:
@@ -261,42 +261,42 @@ def weight_f2(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                  = 0
         eventmap.pixels[y > (vy/vx)*x+height-EDGEPX]                 = 0
         eventmap.pixels[y < (vy*(x-width))/vx+EDGEPX]                = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
 def weight_f3(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x > vx) & (x < width) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] = eventmap.pixels[i+1,j+1]
     # Condition 2:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/x[i-1,j-1]
     # Condition 3:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y >= 0) & (y <= vy))
+    [i,j] = np.where((x > vx) & (x < width) & (y >= 0) & (y <= vy))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     # Condition 4:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y >= height) & (y <= height+vy))
+    [i,j] = np.where((x > vx) & (x < width) & (y >= height) & (y <= height+vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 5:
-    [i,j] = numpy.where((x > width) & (x < width+vx) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x > width) & (x < width+vx) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i-1,j-1]+width+vx)
     # Condition 6:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > height) & (y <= ((-vy*x)/vx)+height+vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > height) & (y <= ((-vy*x)/vx)+height+vy))
     eventmap.pixels[i+1,j+1] *= (vx)/x[i-1,j-1]
     # Condition 7:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y >= ((-vy*x)/vx)+height+vy) & (y <= height+vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y >= ((-vy*x)/vx)+height+vy) & (y <= height+vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 8:
-    [i,j] = numpy.where((x > width) & (x < width+vx) & (y >= ((vy*(-x+width+vx))/vx)) & (y < vy))
+    [i,j] = np.where((x > width) & (x < width+vx) & (y >= ((vy*(-x+width+vx))/vx)) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i-1,j-1]+width+vx)
     # Condition 9:
-    [i,j] = numpy.where((x >= width) & (x < width+vx) & (y >= 0) & (y <= ((vy*(-x+width+vx))/vx)))
+    [i,j] = np.where((x >= width) & (x < width+vx) & (y >= 0) & (y <= ((vy*(-x+width+vx))/vx)))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     # Condition 10:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > ((-vy*(x))/vx)+vy) & (y < vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > ((-vy*(x))/vx)+vy) & (y < vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 11:
-    [i,j] = numpy.where((x >= width) & (x < width+vx) & (y > height) & (y < ((vy*(-x+width+vx))/vx)+height))
+    [i,j] = np.where((x >= width) & (x < width+vx) & (y > height) & (y < ((vy*(-x+width+vx))/vx)+height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i,j]+vy*width-vy*x[i,j])
     
     if remove_edge_pixels:
@@ -306,49 +306,49 @@ def weight_f3(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                 = 0
         eventmap.pixels[y < (((-vy*(x))/vx)+vy)+EDGEPX]             = 0
         eventmap.pixels[y > ((vy*(-x+width+vx))/vx)+height-EDGEPX]  = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                   = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                      = 0
     return eventmap.pixels
 
 def weight_f4(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 7:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y >= 0) & (y < height))
+    [i,j] = np.where((x > vx) & (x < width) & (y >= 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     middlePlan = (vy)/y[i,j]
     # Condition 1:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y > height) & (y <= vy))
+    [i,j] = np.where((x > vx) & (x < width) & (y >= height) & (y <= vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 2:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > height) & (y < (vy*x)/vx))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > height) & (y < (vy*x)/vx))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 3:
-    [i,j] = numpy.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy))
+    [i,j] = np.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 4:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y <= ((vy*(x-width))/vx)+height) & (y > vy))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y <= ((vy*(x-width))/vx)+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i-1,j-1]+width+vx)
     # Condition 6:
-    [i,j] = numpy.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i-1,j-1]+height+vy)
     # Condition 7:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > 0) & (y < (vy*x)/vx) & (y <= height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > 0) & (y < (vy*x)/vx) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     # Condition 8:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y >= (vy*x)/vx) & (y < height))
-    eventmap.pixels[i+1,j+1] *= (vx)/x[i,j]
+    [i,j] = np.where((x > 0) & (x < vx) & (y > (vy*x)/vx) & (y < height))
+    eventmap.pixels[i,j] *= (vx)/x[i,j]
     # Condition 9:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y > vy) & (y <= vy+height))
+    [i,j] = np.where((x >= vx) & (x < width) & (y > vy) & (y <= vy+height))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i-1,j-1]+height+vy)
     # Condition 10:
-    [i,j] = numpy.where((x > 0) & (x <= vx) & (y > (vy/vx)*x) & (y < (vy/vx)*x+height) & (y >= height) & (y < vy))
+    [i,j] = np.where((x > 0) & (x <= vx) & (y > (vy/vx)*x) & (y < (vy/vx)*x+height) & (y >= height) & (y < vy))
     eventmap.pixels[i,j] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 11:
-    [i,j] = numpy.where((x > 0) & (x <= vx) & (y < (vy/vx)*x+height) & (y > vy))
+    [i,j] = np.where((x >= 0) & (x <= vx) & (y <= (vy/vx)*x+height) & (y > vy) & (y <= height+vy))
     eventmap.pixels[i,j] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 12:
-    [i,j] = numpy.where((x >= width) & (x <= vx+width) & (y <= height) & (y > (vy/vx)*(x-width)))
+    [i,j] = np.where((x >= width) & (x <= vx+width) & (y <= height) & (y > (vy/vx)*(x-width)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 13:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y < ((vy*(x-width))/vx)+height) & (y > height) & (y <vy))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y < ((vy*(x-width))/vx)+height) & (y > height) & (y <vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
 
     if remove_edge_pixels:
@@ -358,43 +358,43 @@ def weight_f4(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                     = 0
         eventmap.pixels[y < (vy/vx)*(x-width)+EDGEPX]   = 0
         eventmap.pixels[y > (vy/vx)*x+height-EDGEPX]    = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]          = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]          = 0
     return eventmap.pixels
 
 def weight_f5(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 2:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x > 0) & (x < width) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(x[i,j])
     middlePlan = (vx)/(x[i,j])
     # Condition 1:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > (vy/vx)*(width-x)+vy) & (y < ((-vy*x)/(vx))+height+vy))
+    [i,j] = np.where((x > width) & (x < vx) & (y > (vy/vx)*(width-x)+vy) & (y < ((-vy*x)/(vx))+height+vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 3:
-    [i,j] = numpy.where((x > vx) & (x < width+vx) & (y >= vy) & (y <= height))
+    [i,j] = np.where((x > vx) & (x < width+vx) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 4:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > ((-vy*x)/(vx))+height+vy) & (y < height+vy))
+    [i,j] = np.where((x > 0) & (x < width) & (y > ((-vy*x)/(vx))+height+vy) & (y < height+vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 5:
-    [i,j] =numpy.where((x > 0) & (x < width) & (y > height) & (y < ((-vy*x)/(vx))+height+vy))
+    [i,j] =np.where((x > 0) & (x < width) & (y > height) & (y < ((-vy*x)/(vx))+height+vy))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
     # Condition 6:
-    [i,j] =numpy.where((x > vx) & (x < vx+width) & (y > (vy*(-x+width+vx))/(vx)) & (y < vy))
+    [i,j] =np.where((x > vx) & (x < vx+width) & (y > (vy*(-x+width+vx))/(vx)) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 7:
-    [i,j] =numpy.where((x > vx) & (x < vx+width) & (y > 0) & (y < (vy*(-x+width+vx))/(vx)))
+    [i,j] =np.where((x > vx) & (x < vx+width) & (y > 0) & (y < (vy*(-x+width+vx))/(vx)))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
     # Condition 8:
-    [i,j] =numpy.where((x >= width) & (x < vx) & (y > ((-vy*x)/(vx))+height+vy) & (y < ((vy*(-x+width))/(vx))+height+vy))
+    [i,j] =np.where((x >= width) & (x < vx) & (y > ((-vy*x)/(vx))+height+vy) & (y < ((vy*(-x+width))/(vx))+height+vy))
     eventmap.pixels[i+1,j+1] *= (vy*vx)/(height*vx+vx*vy-vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 9:
-    [i,j] =numpy.where((x >= vx) & (x < vx+width) & (y > height) & (y < ((vy*(-x+width))/(vx))+height+vy))
+    [i,j] =np.where((x >= vx) & (x < vx+width) & (y > height) & (y < ((vy*(-x+width))/(vx))+height+vy))
     eventmap.pixels[i+1,j+1] *= (vy*vx)/(height*vx+vx*vy-vx*y[i,j]+vy*width-vy*x[i,j])
     # Condition 10:
-    [i,j] =numpy.where((x >= 0) & (x < width) & (y > (-vy/vx)*x+vy) & (y < vy))
+    [i,j] =np.where((x >= 0) & (x < width) & (y > (-vy/vx)*x+vy) & (y < vy))
     eventmap.pixels[i+1,j+1] *= -(vy*vx)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 11:
-    [i,j] =numpy.where((x >= width) & (x < vx) & (y > (-vy/vx)*x+vy) & (y < (vy/vx)*(width-x)+vy))
+    [i,j] =np.where((x >= width) & (x < vx) & (y > (-vy/vx)*x+vy) & (y < (vy/vx)*(width-x)+vy))
     eventmap.pixels[i+1,j+1] *= -(vy*vx)/(vx*vy-vx*y[i,j]-vy*x[i,j])
 
     if remove_edge_pixels:
@@ -404,49 +404,49 @@ def weight_f5(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                  = 0
         eventmap.pixels[y > ((vy*(-x+width))/(vx))+height+vy-EDGEPX] = 0
         eventmap.pixels[y < (-vy/vx)*x+vy+EDGEPX]                    = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
 def weight_f6(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y > 0) & (y < height))
+    [i,j] = np.where((x > vx) & (x < width) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vy)/(y[i,j])
     middlePlan = (vy)/(y[i,j])
     # Condition 2:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y > height) & (y < vy))
+    [i,j] = np.where((x > vx) & (x < width) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 3:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > (-vy/vx)*x+vy+height) & (y < vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > (-vy/vx)*x+vy+height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 4:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 5:
-    [i,j] = numpy.where((x > vx) & (x < width) & (y > vy) & (y < vy+height))
+    [i,j] = np.where((x > vx) & (x < width) & (y > vy) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 6:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y <= (-vy/vx)*x+vy+height) & (y >= (-vy/vx)*x+vy) & (y > height) & (y < vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y <= (-vy/vx)*x+vy+height) & (y >= (-vy/vx)*x+vy) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 7:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y >= (-vy/vx)*x+vy) & (y < height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y >= (-vy/vx)*x+vy) & (y < height))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 8:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > vy) & (y < (-vy/vx)*x+vy+height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > vy) & (y < (-vy/vx)*x+vy+height))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
     # Condition 9:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > (-vy/vx)*x+vy+height) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > (-vy/vx)*x+vy+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 10:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y > (vy/vx)*(-x+width)+vy) & (y < height))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y > (vy/vx)*(-x+width)+vy) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 11:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y > 0) & (y < (vy/vx)*(-x+width)+vy) & (y < height))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y > 0) & (y < (vy/vx)*(-x+width)+vy) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
     # Condition 12:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y < (vy/vx)*(-x+width)+vy+height) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width)+vy))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y < (vy/vx)*(-x+width)+vy+height) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width)+vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 13:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y < vy+height) & (y > (vy/vx)*(-x+width)+vy) & (y > vy))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y < vy+height) & (y > (vy/vx)*(-x+width)+vy) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
 
     if remove_edge_pixels:
@@ -456,49 +456,49 @@ def weight_f6(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                  = 0
         eventmap.pixels[y > (vy/vx)*(-x+width)+vy+height-EDGEPX]     = 0
         eventmap.pixels[y < (-vy/vx)*x+vy+EDGEPX]                    = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
 def weight_f7(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 4:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > 0) & (y <= (vy/vx)*x) & (y < height))
+    [i,j] = np.where((x > 0) & (x < width) & (y > 0) & (y <= (vy/vx)*x) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
     middlePlan = vy/y[i,j]
     # Condition 1:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < (vy/vx)*x))
+    [i,j] = np.where((x > width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < (vy/vx)*x))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 2:
-    [i,j] = numpy.where((x > 0) & (x <= width) & (y >= height) & (y < (vy/vx)*x))
+    [i,j] = np.where((x > 0) & (x <= width) & (y >= height) & (y < (vy/vx)*x))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 3:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y < vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 5:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > (vy/vx)*x) & (y <= height))
+    [i,j] = np.where((x > 0) & (x < width) & (y > (vy/vx)*x) & (y <= height))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
     # Condition 6:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y <= vy+height) & (y > vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y <= vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 7:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width)+height))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width)+height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 8:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)) & (y <= height))
+    [i,j] = np.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 9:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)) & (y <= height))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 10:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x >= width) & (x < vx) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 11:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x > 0) & (x < width) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 12:
-    [i,j] = numpy.where((x > 0) & (x < vx) & (y > (vy/vx)*x) & (y < vy) & (y > height))
+    [i,j] = np.where((x > 0) & (x < vx) & (y > (vy/vx)*x) & (y < vy) & (y > height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 13:
-    [i,j] = numpy.where((x > width) & (x < vx+width) & (y < (vy/vx)*(x-width)+height) & (y > height) & (y < vy))
+    [i,j] = np.where((x > width) & (x < vx+width) & (y < (vy/vx)*(x-width)+height) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
 
     if remove_edge_pixels:
@@ -508,55 +508,55 @@ def weight_f7(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                  = 0
         eventmap.pixels[y < (vy/vx)*(x-width)+EDGEPX]                = 0
         eventmap.pixels[y > (vy/vx)*x+height-EDGEPX]                 = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
 def weight_f8(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > 0) & (y < (vy/vx)*x) & (y > 0))
+    [i,j] = np.where((x > 0) & (x < width) & (y > 0) & (y < (vy/vx)*x) & (y > 0))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
     middlePlan = vy/y[i,j]
     # Condition 2:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > height) & (y < vy))
+    [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 3:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > 0) & (y < height))
+    [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 4:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > vy) & (y < vy+height))
+    [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > vy) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 5:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > (vy/vx)*x) & (y <= height))
+    [i,j] = np.where((x > 0) & (x < width) & (y > (vy/vx)*x) & (y <= height))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
     # Condition 6:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y <= vy+height) & (y > vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y <= vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 7:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width)+height) & (y < height+vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width)+height) & (y < height+vy))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 8:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y < (vy/vx)*x) & (y >= 0) & (y < height))
+    [i,j] = np.where((x >= width) & (x < vx) & (y < (vy/vx)*x) & (y >= 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 9:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y < (vy/vx)*x) & (y >= height) & (y < vy))
+    [i,j] = np.where((x >= width) & (x < vx) & (y < (vy/vx)*x) & (y >= height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 10:
-    [i,j] = numpy.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*x) & (y >= 0) & (y < height))
+    [i,j] = np.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*x) & (y >= 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 11:
-    [i,j] = numpy.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*x) & (y >= height) & (y < vy))
+    [i,j] = np.where((x >= vx) & (x < vx+width) & (y < (vy/vx)*x) & (y >= height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 12:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 13:
-    [i,j] = numpy.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < vy) & (y > height))
+    [i,j] = np.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < vy) & (y > height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 14:
-    [i,j] = numpy.where((x >= 0) & (x < width) & (y > (vy/vx)*(x-width)+height) & (y < vy) & (y > height))
+    [i,j] = np.where((x >= 0) & (x < width) & (y > (vy/vx)*(x-width)+height) & (y < vy) & (y > height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
     # Condition 15:
-    [i,j] = numpy.where((x >= 0) & (x < width) & (y > (vy/vx)*(x-width)+height) & (y > vy) & (y < vy+height))
+    [i,j] = np.where((x >= 0) & (x < width) & (y > (vy/vx)*(x-width)+height) & (y > vy) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
 
     if remove_edge_pixels:
@@ -566,55 +566,55 @@ def weight_f8(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                  = 0
         eventmap.pixels[y < (vy/vx)*(x-width)+EDGEPX]                = 0
         eventmap.pixels[y > (vy/vx)*x+height-EDGEPX]                 = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
 def weight_f9(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     middlePlan = (vy)/(-y[i,j]+height+vy)
     # Condition 2:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > (-vy/vx)*x+height+vy) & (y < (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > width) & (x < vx) & (y > (-vy/vx)*x+height+vy) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= middlePlan[0]
     # Condition 3:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy))
+    [i,j] = np.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy))
     eventmap.pixels[i+1,j+1] *= middlePlan[0]
     # Condition 4:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= middlePlan[0]
     # Condition 5:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y < (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x > 0) & (x < width) & (y < (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
     # Condition 6:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y < (vy/vx)*(-x+width+vx)) & (y > 0) & (y < height))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y < (vy/vx)*(-x+width+vx)) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
     # Condition 5:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(-x+width+vx)) & (y < height))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(-x+width+vx)) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 6:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y < height) & (y > 0))
+    [i,j] = np.where((x > width) & (x < vx) & (y < height) & (y > 0))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 7:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y < height) & (y > 0))
+    [i,j] = np.where((x > 0) & (x < width) & (y < height) & (y > 0))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 8:
-    [i,j] = numpy.where((x > 0) & (x < width) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
+    [i,j] = np.where((x > 0) & (x < width) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 9:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
+    [i,j] = np.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 10:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > vy) & (y < vy+height))
+    [i,j] = np.where((x > width) & (x < vx) & (y > vy) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 11:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 12:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > vy) & (y < height+vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y < height+vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 13:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
 
     if remove_edge_pixels:
@@ -624,49 +624,49 @@ def weight_f9(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                  = 0
         eventmap.pixels[y > (vy/vx)*(-x+width)+vy+height-EDGEPX]     = 0
         eventmap.pixels[y < (-vy/vx)*x+vy+EDGEPX]                    = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                    = 0
     return eventmap.pixels
 
 def weight_f10(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 6:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y <= height) & (y > 0) & (y < (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > width) & (x < vx) & (y <= height) & (y > 0) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     middlePlan = -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 1:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y < (-vy/vx)*x+height+vy) & (y > (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > width) & (x < vx) & (y < (-vy/vx)*x+height+vy) & (y > (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= middlePlan[-1]
     # Condition 2:
-    [i,j] = numpy.where((x > 0) & (x <= width) & (y > (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x > 0) & (x <= width) & (y > (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
     # Condition 3:
-    [i,j] = numpy.where((x > 0) & (x <= width) & (y < (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
+    [i,j] = np.where((x > 0) & (x <= width) & (y < (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
     # Condition 4:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y < (vy/vx)*(-x+width+vx)) & (y > 0) & (y < height))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y < (vy/vx)*(-x+width+vx)) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
     # Condition 5:
-    [i,j] = numpy.where((x >= vx) & (x < vx+width) & (y > (vy/vx)*(-x+width+vx)) & (y <= height))
+    [i,j] = np.where((x >= vx) & (x < vx+width) & (y > (vy/vx)*(-x+width+vx)) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 7:
-    [i,j] = numpy.where((x > 0) & (x <= width) & (y > 0) & (y <= height))
+    [i,j] = np.where((x > 0) & (x <= width) & (y > 0) & (y <= height))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 8:
-    [i,j] = numpy.where((x > 0) & (x <= width) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
+    [i,j] = np.where((x > 0) & (x <= width) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 9:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y < (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 10:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > vy) & (y < vy+height) & (y > (-vy/vx)*x+height+vy))
+    [i,j] = np.where((x > width) & (x < vx) & (y > vy) & (y < vy+height) & (y > (-vy/vx)*x+height+vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 11:
-    [i,j] = numpy.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y > (-vy/vx)*x+height+vy))
+    [i,j] = np.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y > (-vy/vx)*x+height+vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 12:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > vy) & (y < height+vy))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y < height+vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
     # Condition 13:
-    [i,j] = numpy.where((x > vx) & (x < vx+width) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
+    [i,j] = np.where((x > vx) & (x < vx+width) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
 
     if remove_edge_pixels:
@@ -676,82 +676,73 @@ def weight_f10(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
         eventmap.pixels[y < EDGEPX]                                  = 0
         eventmap.pixels[y < (vy/vx)*(-x+width)+vy-EDGEPX]            = 0
         eventmap.pixels[y > (-vy/-x)*x+vy-EDGEPX]                    = 0
-    eventmap.pixels[numpy.isnan(eventmap.pixels)]                       = 0
+    eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
-    # if remove_edge_pixels:
-    #     eventmap.pixels[x > width+vx-EDGEPX]                         = 0
-    #     eventmap.pixels[x < EDGEPX]                                  = 0
-    #     eventmap.pixels[y > height+vy-EDGEPX]                        = 0
-    #     eventmap.pixels[y < EDGEPX]                                  = 0
-    #     eventmap.pixels[y > (vy/vx)*(-x+width)+vy+height-EDGEPX]     = 0
-    #     eventmap.pixels[y < (-vy/vx)*x+vy+EDGEPX]                    = 0
-    # eventmap.pixels[numpy.isnan(eventmap.pixels)]                    = 0
-    # return eventmap.pixels
-
-def intensity_weighted_variance(sensor_size: tuple[int, int],events: numpy.ndarray,velocity: tuple[float, float]):
-    WEIGHT=True
+def intensity_weighted_variance(sensor_size: tuple[int, int],events: np.ndarray,velocity: tuple[float, float]):
+    np.seterr(divide='ignore', invalid='ignore')
+    WEIGHT          = True
     t               = (events["t"][-1]-events["t"][0])/1e6
     EDGEPX          = t
-    width           = max(events["x"]+1)
-    height          = max(events["y"]+1)
+    width           = max(events["x"]+20)
+    height          = max(events["y"]+20)
     fieldx          = velocity[0]/1e-6
     fieldy          = velocity[1]/1e-6
     field_velocity  = (fieldx * 1e-6, fieldy * 1e-6)
     eventmap = accumulate((width, height), events, field_velocity)
-    vx = numpy.abs(fieldx*t)
-    vy = numpy.abs(fieldy*t)
-    x  = numpy.tile(numpy.arange(1, eventmap.pixels.shape[1]+1), (eventmap.pixels.shape[0], 1))
-    y  = numpy.tile(numpy.arange(1, eventmap.pixels.shape[0]+1), (eventmap.pixels.shape[1], 1)).T
+    vx = np.round(np.abs(fieldx*t))
+    vy = np.round(np.abs(fieldy*t))
+    x  = np.tile(np.arange(1, eventmap.pixels.shape[1]+1), (eventmap.pixels.shape[0], 1))
+    y  = np.tile(np.arange(1, eventmap.pixels.shape[0]+1), (eventmap.pixels.shape[1], 1)).T
 
     if WEIGHT:
         #f_1(x,y)
-        if fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height:
+        if fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height:
             evmap   = weight_f1(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
             
         #f_2(x,y)
-        if fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height:
+        if fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height:
             evmap   = weight_f2(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_3(x,y)
-        if fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height:
+        if fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height:
             evmap   = weight_f3(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_4(x,y)
-        if fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height or fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height:
+        if fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height or fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height:
             evmap   = weight_f4(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_5(x,y)
-        if fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height:
+        if fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height or fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height:
             evmap   = weight_f5(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_6(x,y)
-        if fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height or fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height:
+        if fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height or fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height:
             evmap   = weight_f6(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_7(x,y)
-        if (((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height or (((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height:
+        if (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
             evmap   = weight_f7(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_8(x,y)
-        if  (((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height or (((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height:
+        if  (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
             evmap   = weight_f8(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_9(x,y)
-        if (height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height or (height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height:
+        if (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
             evmap   = weight_f9(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
 
         #f_10(x,y)
-        if  (height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height or (height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height:
+        if  (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height or (height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height:
             evmap   = weight_f10(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True)
             var     = variance_loss(evmap)
         else:
@@ -762,7 +753,7 @@ def intensity_weighted_variance(sensor_size: tuple[int, int],events: numpy.ndarr
 
 def intensity_maximum(
     sensor_size: tuple[int, int],
-    events: numpy.ndarray,
+    events: np.ndarray,
     velocity: tuple[float, float],
 ):
     return event_warping_extension.intensity_maximum(  # type: ignore
@@ -777,12 +768,12 @@ def intensity_maximum(
 
 def optimize_local(
     sensor_size: tuple[int, int],
-    events: numpy.ndarray,
+    events: np.ndarray,
     initial_velocity: tuple[float, float],  # px/µs
     heuristic_name: str,  # max or variance
     method: str,  # Nelder-Mead, Powell, L-BFGS-B, TNC, SLSQP
     # see Constrained Minimization in https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-    callback: typing.Callable[[numpy.ndarray], None],
+    callback: typing.Callable[[np.ndarray], None],
 ):
     def heuristic(velocity):
         if heuristic_name == "max":
@@ -805,20 +796,31 @@ def optimize_local(
         else:
             raise Exception(f'unknown heuristic name "{heuristic_name}"')
 
-    result = scipy.optimize.minimize(
-        fun=heuristic,
-        x0=[initial_velocity[0] * 1e3, initial_velocity[1] * 1e3],
-        method=method,
-        bounds=scipy.optimize.Bounds([-100.0, -100.0], [100.0, 100.0]),
-        options={'ftol': 1e-9},
-        callback=callback
-    ).x
-    
-    return (float(result[0]) / 1e3, float(result[1]) / 1e3)
+    if method == "Nelder-Mead":
+        result = scipy.optimize.minimize(
+            fun=heuristic,
+            x0=[initial_velocity[0] * 1e3, initial_velocity[1] * 1e3],
+            method=method,
+            bounds=scipy.optimize.Bounds([-1.0, -1.0], [1.0, 1.0]),
+            options={'ftol': 1e-9,'maxiter': 50},
+            callback=callback
+        ).x
+        return (float(result[0]) / 1e3, float(result[1]) / 1e3)
+    elif method == "BFGS":
+        result = scipy.optimize.minimize(
+            fun=heuristic,
+            x0=[initial_velocity[0] / 1e2, initial_velocity[1] / 1e2],
+            method=method,
+            options={'ftol': 1e-9,'maxiter': 50},
+            callback=callback
+        ).x
+        return (float(result[0]) / 1e3, float(result[1]) / 1e3)
+    else:
+        print("optimisation method is not support.")
 
 def optimize_cma(
     sensor_size: tuple[int, int],
-    events: numpy.ndarray,
+    events: np.ndarray,
     initial_velocity: tuple[float, float],
     initial_sigma: float,
     heuristic_name: str,
@@ -846,12 +848,12 @@ def optimize_cma(
             raise Exception(f'unnknown heuristic name "{heuristic_name}"')
 
     optimizer = cmaes.CMA(
-        mean=numpy.array(initial_velocity) * 1e3,
+        mean=np.array(initial_velocity) * 1e3,
         sigma=initial_sigma * 1e3,
-        bounds=numpy.array([[-1.0, 1.0], [-1.0, 1.0]]),
+        bounds=np.array([[-1.0, 1.0], [-1.0, 1.0]]),
     )
     best_velocity: tuple[float, float] = copy.copy(initial_velocity)
-    best_heuristic = numpy.Infinity
+    best_heuristic = np.Infinity
     for _ in range(0, iterations):
         solutions = []
         for _ in range(optimizer.population_size):

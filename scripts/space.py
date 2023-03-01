@@ -9,14 +9,13 @@ import matplotlib.pyplot as plt
 import PIL.Image
 
 
-# width, height, events = event_warping.read_es_file(dirname / f"{configuration.name}.es")
-VIDEOS          = ["20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5"]
+VIDEOS          = ["20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR"]
 OBJECTIVE       = ["variance","weighted_variance","max"]
 FILENAME        = VIDEOS[0]
 HEURISTIC       = OBJECTIVE[1]
 VELOCITY_RANGE  = (-30, 30)
-RESOLUTION      = 20
-TMAX            = 20e6
+RESOLUTION      = 50
+TMAX            = 30e6
 RATIO           = 0.0000001
 READFROM        = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/data/es/NADIR/"
 SAVEFILETO      = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/img/"
@@ -80,4 +79,3 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
     im1 = image.rotate(90, PIL.Image.NEAREST, expand = 1)
     new_im1 = im1.resize((400, 400))
     im1 = new_im1.save(SAVEFILETO+FILENAME+"_"+str(VELOCITY_RANGE[0])+"_"+str(VELOCITY_RANGE[1])+"_"+str(RESOLUTION)+"_"+str(RATIO)+".png")
-    im1.show()

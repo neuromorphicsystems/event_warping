@@ -1,6 +1,6 @@
-# Dense Piecewise Contrast Maximisation for Space-based Observations
+# Analytically Corrected Contrast Maximisation for Orbital Imagery with Neuromorphic Cameras
 
-This contains the implementation of the paper "Dense Piecewise Contrast Maximisation for Space-based Observations".
+This contains the implementation of the paper "Analytically Corrected Contrast Maximisation for Orbital Imagery with Neuromorphic Cameras".
 
 <!-- <p align="center">
       <img src="./img/correction_algorithm.svg" align="left">
@@ -11,7 +11,7 @@ This contains the implementation of the paper "Dense Piecewise Contrast Maximisa
 <p align="center">
   <img alt="Light" src="./img/before_correction.gif" width="23%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/framework.png" width="44%">
+  <img alt="Dark" src="./img/framework.png" width="40%">
 &nbsp; &nbsp; &nbsp; &nbsp;
   <img alt="Dark" src="./img/after_correction.gif" width="24%">
 </p>
@@ -52,6 +52,11 @@ The installation process compiles the event_warping_extension, which is required
 
 ## Usage
 
+Python files in _scripts_ implement two different methods to estimate the visual speed (px/s) for the ISS recordings:
+
+1. The implementation of the standard Contrast Maximisation framework which uses the variance as an objective function.
+2. The method proposed in this paper which divides the Contrast Maximisation process into multiple peicewise fuctions and apply multiplicative weight to remove the global maxima to preserving the correct motion parameter.
+
 To run the code it is recommended to have the have the recording in either `.es` or `.h5`. If your events data are in `.mat` format, then use `scripts/mattoes.py` to convert them to`.es`. Otherwise, please refer to [command_line_tool](https://github.com/neuromorphic-paris/command_line_tools) and [event_stream](event_stream) to learn more about how to convert and process your event data in `.es`.
 
 
@@ -61,92 +66,36 @@ Before running the example, create a directory called _recordings_ in the _event
 python3 example.py
 ```
 Expected output:
-![image info](./img/Panama_2022-01-24_20_12_11_NADIR_21.49_-0.74.png)
 
-## Scripts
+<p align="center">
+  <img alt="Light" src="./img/Panama_2022-01-24_20_12_11_NADIR_21.49_-0.74.png" width="90%">
+</p>
 
-Python files in _scripts_ implement two different methods to estimate the visual speed (px/s) for the ISS recordings:
+**`scripts/space.py`**
 
-1. The implementation of the standard Contrast Maximisation framework which uses the variance as an objective function.
-2. The method proposed in this paper which divides the Contrast Maximisation process into multiple peicewise fuctions and apply multiplicative weight to remove the global maxima to preserving the correct motion parameter.
+Contains the code for running contrast maximization with two different heuristics approach: (1) Standard and (2) the method proposed in the paper.
 
-_scripts/configuration.py_ defines the parameters (file name, intial velocity...) used by the other script files.
+`HEURISTIC = "variance"` will run the standard contrast maximisation algorithm and save the loss landscape in .json and .png in your chosen directory.
 
--   _optimize_speed_contrast_maximization.py_ calculates the velocity that maximizes image contrast. Run `python3 optimize_speed_contrast_maximization.py --help` to list available optimization methods.
--   _plot_space_1d.py_ generates a 1D optimization space plot. _space_1d.py_ must be run first.
--   _plot_space.py_ generates a 2D optimization space plot. _space.py_ must be run first.
--   _project.py_ generates a contrast maximized image and its histogram using the velocity in _configuration.py_.
--   _space_1d.py_ calculates the image contrast for every vx (resp. vy) at constant vy (resp. vx).
-- _peicewise_objective_algo_space.py_ contains the original implementation of the peicewise contrast maximisation algorithm. It takes input `.es` or `.h5` file and output the corrected loss landscape. There is not optimisation included in this, instead it does an exhaustive search for the parameter but in the corrected space. This takes a long time to run.
--   _space.py_ calculates the image contast for every pair (vx, vy). You can switch between the standard method and proposed approach using the following steps:
+`HEURISTIC = "weighted_variance"` will the run the method proposed in the paper which include a volumetric-based correction on the loss landscape. Both .json and .png will be saved in your chosen directory.
 
-```sh
-    weight
-```
+`HEURISTIC = "max"` is a simple custom objective function that takes the maximum as the loss. Not used in the paper and it is not investigated further. This can be a guide if you wish to include a new custom objective function along with the other methods.
 
-There is not optimisation included in this, instead it does an exhaustive search for the parameter but in the corrected space. This takes a long time to run.
+Below is an example of using the **variance** (left) and the **weighted_variance** (right) methods. The weighted variance method will automatically remove the global maximum and keep a single local maximum that belongs to the correct motion parameters. 
 
-## References
+<p align="center">
+  <img alt="Light" src="./img/landscape_before_after.png" width="70%">
+</p>
 
-## Install
 
-```sh
-git clone git@github.com:neuromorphicsystems/event_warping.git # alternatively, download as zip
-cd event_warping
-python3 -m pip install -e .
-```
+**`scripts/find_theta.py`**
 
-The installation process compiles the event_warping_extension, which is required to speed up event projection calculations. If the installation fails, you may need to install a C++ compiler with one of the following methods:
 
--   **Ubuntu**
+Use this script to use an optimiser to quickly find the correct motion parameters, without doing an exhaustive search across the entire motion space. The script includes a gradient-based (BFGS) and non-gradiend-based (Nedler-mead) optimiser as well as other optimisation methods for testing. If you wish to add another optimisation method, see `event_warping` class.
 
-    ```sh
-    sudo apt install -y build-essentials
-    ```
+# An example of the results
 
--   **macOS**
+<p align="center">
+  <img alt="Light" src="./img/suezcanalfinalresults.gif" width="70%">
+</p>
 
-    ```sh
-    xcode-select --install
-    ```
-
--   **Windows**
-
-    Start > Windows Powershell > Right click > Run as Administator
-
-    ```powershell
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    choco install -y visualstudio2019buildtools
-    choco install -y visualstudio2019-workload-vctools
-    ```
-
-    See https://chocolatey.org for details.
-
-## Example
-
-Before running the example, create a directory called _recordings_ in the _event_warping_ directory and place _20220124_201028_Panama_2022-01-24_20~12~11_NADIR.h5_ in _recordings_.
-
-```
-python3 example.py
-```
-
-## Scripts
-
-Python files in _scripts_ implement different methods to estimate the visual speed (px/s) of ISS recordings and generate figures to understand why the optimization process (contrast maximization) fails in some cases.
-
-_scripts/configuration.py_ defines the parameters (file name, intial velocity...) used by the other script files.
-
--   _optimize_speed_contrast_maximization.py_ calculates the velocity that maximizes image contrast. Run `python3 optimize_speed_contrast_maximization.py --help` to list available optimization methods.
--   _plot_space_1d.py_ generates a 1D optimization space plot. _space_1d.py_ must be run first.
--   _plot_space.py_ generates a 2D optimization space plot. _space.py_ must be run first.
--   _project.py_ generates a contrast maximized image and its histogram using the velocity in _configuration.py_.
--   _space_1d.py_ calculates the image contrast for every vx (resp. vy) at constant vy (resp. vx).
--   _space.py_ calculates the image contast for every pair (vx, vy). This script takes a long time to run.
-
-## Papers
-
-A Unifying Contrast Maximization Framework for Event Cameras, with Applications to Motion, Depth, and Optical Flow Estimation
-
-https://ieeexplore.ieee.org/document/8578505
-
-https://arxiv.org/pdf/1804.01306.pdf
