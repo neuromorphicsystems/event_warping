@@ -1,6 +1,6 @@
-# Analytically Corrected Contrast Maximisation for Orbital Imagery with Neuromorphic Cameras
+# Density Invariant Contrast Maximisation for Neuromorphic Earth Observations
 
-This contains the implementation of the paper "Analytically Corrected Contrast Maximisation for Orbital Imagery with Neuromorphic Cameras".
+This contains the implementation of the paper "Density Invariant Contrast Maximisation for Neuromorphic Earth Observations".
 
 <!-- <p align="center">
       <img src="./img/correction_algorithm.svg" align="left">
