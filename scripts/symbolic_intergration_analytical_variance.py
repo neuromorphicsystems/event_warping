@@ -30,20 +30,20 @@ def fun1():
     limy_finish_f1 = [h,h, vy*t, h,h+vy*t,vy*t,((vy*x)/vx)+h,vy*t,((vy*x)/vx),(h-(((w-x)*vy)/vx)),h+vy*t]
     
     fbar_1 = (sp.integrate(f1_xy[0],  (y, limy_start_f1[0],  limy_finish_f1[0]),  (x, limx_start_f1[0],  limx_finish_f1[0]))+
-            sp.integrate(f1_xy[1],  (y, limy_start_f1[1],  limy_finish_f1[1]),  (x, limx_start_f1[1],  limx_finish_f1[1]))+
-            sp.integrate(f1_xy[2],  (y, limy_start_f1[2],  limy_finish_f1[2]),  (x, limx_start_f1[2],  limx_finish_f1[2]))+
-            sp.integrate(f1_xy[3],  (y, limy_start_f1[3],  limy_finish_f1[3]),  (x, limx_start_f1[3],  limx_finish_f1[3]))+
-            sp.integrate(f1_xy[4],  (y, limy_start_f1[4],  limy_finish_f1[4]),  (x, limx_start_f1[4],  limx_finish_f1[4]))+
-            sp.integrate(f1_xy[5],  (y, limy_start_f1[5],  limy_finish_f1[5]),  (x, limx_start_f1[5],  limx_finish_f1[5]))+
-            sp.integrate(f1_xy[6],  (y, limy_start_f1[6],  limy_finish_f1[6]),  (x, limx_start_f1[6],  limx_finish_f1[6]))+
-            sp.integrate(f1_xy[7],  (y, limy_start_f1[7],  limy_finish_f1[7]),  (x, limx_start_f1[7],  limx_finish_f1[7]))+
-            sp.integrate(f1_xy[8],  (y, limy_start_f1[8],  limy_finish_f1[8]),  (x, limx_start_f1[8],  limx_finish_f1[8]))+
-            sp.integrate(f1_xy[9],  (y, limy_start_f1[9],  limy_finish_f1[9]),  (x, limx_start_f1[9],  limx_finish_f1[9]))+
-            sp.integrate(f1_xy[10], (y, limy_start_f1[10], limy_finish_f1[10]), (x, limx_start_f1[10], limx_finish_f1[10])))/((w+vx*t)*(h+vy*t)-(vx*vy*t**2))
+              sp.integrate(f1_xy[1],  (y, limy_start_f1[1],  limy_finish_f1[1]),  (x, limx_start_f1[1],  limx_finish_f1[1]))+
+              sp.integrate(f1_xy[2],  (y, limy_start_f1[2],  limy_finish_f1[2]),  (x, limx_start_f1[2],  limx_finish_f1[2]))+
+              sp.integrate(f1_xy[3],  (y, limy_start_f1[3],  limy_finish_f1[3]),  (x, limx_start_f1[3],  limx_finish_f1[3]))+
+              sp.integrate(f1_xy[4],  (y, limy_start_f1[4],  limy_finish_f1[4]),  (x, limx_start_f1[4],  limx_finish_f1[4]))+
+              sp.integrate(f1_xy[5],  (y, limy_start_f1[5],  limy_finish_f1[5]),  (x, limx_start_f1[5],  limx_finish_f1[5]))+
+              sp.integrate(f1_xy[6],  (y, limy_start_f1[6],  limy_finish_f1[6]),  (x, limx_start_f1[6],  limx_finish_f1[6]))+
+              sp.integrate(f1_xy[7],  (y, limy_start_f1[7],  limy_finish_f1[7]),  (x, limx_start_f1[7],  limx_finish_f1[7]))+
+              sp.integrate(f1_xy[8],  (y, limy_start_f1[8],  limy_finish_f1[8]),  (x, limx_start_f1[8],  limx_finish_f1[8]))+
+              sp.integrate(f1_xy[9],  (y, limy_start_f1[9],  limy_finish_f1[9]),  (x, limx_start_f1[9],  limx_finish_f1[9]))+
+              sp.integrate(f1_xy[10], (y, limy_start_f1[10], limy_finish_f1[10]), (x, limx_start_f1[10], limx_finish_f1[10])))/((w+vx*t)*(h+vy*t)-(vx*vy*t**2))
 
     with open('./test_files/final_variance_equation_1.txt','wb') as f:
-                for idx in tqdm(range(len(fbar_1))):
-                        variance_f2 = sp.simplify(sp.integrate(((fbar_1[idx]-fbar_1)**2), (y, limy_start_f1[idx],  limy_finish_f1[idx]),  (x, limx_start_f1[idx],  limx_finish_f1[idx])))
+                for idx in tqdm(range(len(f1_xy))):
+                        variance_f2 = sp.simplify(sp.integrate(((f1_xy[idx]-fbar_1)**2), (y, limy_start_f1[idx],  limy_finish_f1[idx]),  (x, limx_start_f1[idx],  limx_finish_f1[idx])))
                         pickle.dump(str(variance_f2),f)
 
 ############# f_2(x,y) ####################
@@ -319,11 +319,11 @@ def fun8():
                         variance_f8 = sp.simplify(sp.integrate(((f8_xy[idx]-fbar_8)**2), (y, limy_start_f8[idx],  limy_finish_f8[idx]),  (x, limx_start_f8[idx],  limx_finish_f8[idx])))
                         pickle.dump(str(variance_f8),f)
 
-# output = fun1()
+output = fun1()
 # output = fun2()
 # output = fun3()
 # output = fun4()
-output = fun5()
+# output = fun5()
 # output = fun6()
 #output = fun7()
 #output = fun8()
