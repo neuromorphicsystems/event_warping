@@ -13,17 +13,17 @@ counting            = 0
 fun_idx             = 0
 SAVE                = 1
 WEIGHT              = 1
-VIDEOS              =[ "equally_fired_pixels"]
+VIDEOS              = ["equally_fired_pixels"]
 OBJECTIVE           = ["variance","weighted_variance"]
 FILENAME            = VIDEOS[0]
 HEURISTIC           = OBJECTIVE[WEIGHT]
-VELOCITY_RANGE      = (-50,50)
-RESOLUTION          = 20
-TMAX                = 10e6
+VELOCITY_RANGE      = (-200,200)
+RESOLUTION          = 50
+TMAX                = 50e6
 RATIO               = 0.00001
-imgpath             = "/media/sam/Samsung_T51/PhD/Code/orbital_localisation/img/weight_map"
-READFROM            = "/media/sam/Samsung_T51/PhD/Code/orbital_localisation/test_files/"
-SAVEFILETO          = "/media/sam/Samsung_T51/PhD/Code/orbital_localisation/img/"
+imgpath             = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/img/weight_map"
+READFROM            = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/test_files/"
+SAVEFILETO          = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/img/"
 scalar_velocities   = np.linspace(VELOCITY_RANGE[0],VELOCITY_RANGE[1],RESOLUTION)
 nVel                = len(scalar_velocities)
 
@@ -58,11 +58,11 @@ width, height, events = event_warping.read_es_file(READFROM + FILENAME + ".es")
 # width+=1
 # height+=1
 events = without_most_active_pixels(events, ratio=0.000001)
-TMAX = events["t"][-1]
+# TMAX = events["t"][-1]
 ii = np.where(np.logical_and(events["t"]>1, events["t"]<(TMAX)))
 events = events[ii]
 t = (events["t"][-1]-events["t"][0])/1e6
-EDGEPX = t
+EDGEPX = 1
 print(f"{len(events)=}")
 
 def weight_f1(vx,vy,remove_edge_pixels=False):
@@ -572,8 +572,8 @@ def weight_f10(vx,vy,remove_edge_pixels=False):
         eventmap.pixels[x < EDGEPX]                                  = 0
         eventmap.pixels[y > height+vy-EDGEPX]                        = 0
         eventmap.pixels[y < EDGEPX]                                  = 0
-        # eventmap.pixels[y < (vy/vx)*(-x+width)+vy-EDGEPX]     = 0
-        # eventmap.pixels[y > (-vy/-x)*x+vy-EDGEPX]                    = 0
+        eventmap.pixels[y < (vy/vx)*(-x+width)+vy-EDGEPX]            = 0
+        eventmap.pixels[y > (-vy/-x)*x+vy-EDGEPX]                    = 0
     eventmap.pixels[np.isnan(eventmap.pixels)]                       = 0
     return eventmap.pixels
 
@@ -639,7 +639,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 1
                 evmap                   = weight_f1(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
             
             #f_2(x,y)
@@ -647,7 +647,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 2
                 evmap                   = weight_f2(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_3(x,y)
@@ -655,7 +655,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 3
                 evmap                   = weight_f3(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_4(x,y)
@@ -663,7 +663,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 4
                 evmap                   = weight_f4(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_5(x,y)
@@ -671,7 +671,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 5
                 evmap                   = weight_f5(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_6(x,y)
@@ -679,7 +679,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 6
                 evmap                   = weight_f6(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_7(x,y)
@@ -687,7 +687,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 7
                 evmap                   = weight_f7(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_8(x,y)
@@ -695,7 +695,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 8
                 evmap                   = weight_f8(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_9(x,y)
@@ -703,7 +703,7 @@ for iVely in range(0,nVel):
                 fun_idx                 += 9
                 evmap                   = weight_f9(vx,vy,remove_edge_pixels=True)
                 var                     = variance(evmap)
-                saveimg(evmap,var,fun_idx,draw=True)
+                saveimg(evmap,var,fun_idx,draw=False)
                 fun_idx=0
 
             #f_10(x,y)

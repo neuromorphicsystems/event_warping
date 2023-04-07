@@ -8,7 +8,7 @@ import numpy as np
 import scipy.io as sio
 
 events = []
-FILENAME = "res_500x500_noise_500000_signal_0"
+FILENAME = "spike_rate_1_signal_0_D_1e6"
 mat = sio.loadmat('/media/sam/Samsung_T51/PhD/Code/orbital_localisation/test_files/' + FILENAME + '.mat')
 
 events = mat['e']

@@ -36,13 +36,13 @@ y = np.tile(np.arange(-pixels.shape[1], pixels.shape[0],2), (pixels.shape[1], 1)
 def f(x,y):
     "Objective function"
     return -event_warping.intensity_weighted_variance((width, height),events,velocity=(x, y))
- 
+
 # Hyper-parameter of the algorithm
 c1 = c2 = 0.1
 w = 0.5
  
 # Create particles
-n_particles = 100
+n_particles = 10
 np.random.seed(RESOLUTION)
 X = (2 * np.random.rand(2,n_particles) - 1)*RESOLUTION
 V = np.random.randn(2, n_particles) * RESOLUTION/10

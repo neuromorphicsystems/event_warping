@@ -136,6 +136,7 @@ def fun4():
             ((rho*(-y+h+vy*t))/(vx*vy)),
             ((rho*((x-w)/(vx*w))+(y/(vx*vy)))),
             ((rho*(-((t*(x-w-vx*t))/(vx*w))-((y-h)/(vx*vy)))))]
+            
 
     limx_start_f4  = [w,0,vx*t,0,0,vx*t,vx*t,w,w,0,vx*t]
     limx_finish_f4 = [vx*t,w,w+vx*t,w,w,w+vx*t,w+vx*t,vx*t,vx*t,w,w+vx*t]
@@ -204,7 +205,7 @@ def fun5():
                 sp.integrate(f5_xy[10], (y, limy_start_f5[10], limy_finish_f5[10]), (x, limx_start_f5[10], limx_finish_f5[10])
                 ))/((w+vx*t)*(h+vy*t)-(vx*vy*t**2))
     fbar_5 = sp.simplify(fbar_5)
-    with open('./test_files/final_variance_equation_5_v2.txt','wb') as f:
+    with open('./test_files/final_variance_equation_5_v3.txt','wb') as f:
                 for idx in tqdm(range(len(f5_xy))):
                         variance_f5 = sp.simplify(sp.integrate(((f5_xy[idx]-fbar_5)**2), (y, limy_start_f5[idx],  limy_finish_f5[idx]),  (x, limx_start_f5[idx],  limx_finish_f5[idx])))
                         pickle.dump(str(variance_f5),f)
@@ -319,11 +320,11 @@ def fun8():
                         variance_f8 = sp.simplify(sp.integrate(((f8_xy[idx]-fbar_8)**2), (y, limy_start_f8[idx],  limy_finish_f8[idx]),  (x, limx_start_f8[idx],  limx_finish_f8[idx])))
                         pickle.dump(str(variance_f8),f)
 
-output = fun1()
+# output = fun1()
 # output = fun2()
 # output = fun3()
 # output = fun4()
-# output = fun5()
+output = fun5()
 # output = fun6()
 #output = fun7()
 #output = fun8()

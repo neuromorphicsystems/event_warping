@@ -15,8 +15,10 @@ python3 -m pip install -e . && python scripts/space.py
 
 VIDEOS          = ["20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5"]
 OBJECTIVE       = ["variance","weighted_variance","max"]
-FILENAME        = VIDEOS[0]
+method          = ["SLSQP", "BFGS", "Nelder-Mead"]
+SOLVER          = method[1]
 HEURISTIC       = OBJECTIVE[1]
+FILENAME        = VIDEOS[0]
 VELOCITY_RANGE  = (-30, 30)
 RESOLUTION      = 20
 TMAX            = 5e6
@@ -43,8 +45,6 @@ def calculate_heuristic(velocity: tuple[float, float]):
 def callback(velocity: np.ndarray):
     print(f"velocity={velocity * 1e3}")
 
-method = ["SLSQP", "BFGS", "Nelder-Mead"]
-
 initial_v = (20 / 1e6, 1 / 1e6) #(21.49 / 1e6, -0.74 / 1e6)
 STEP = events["t"][-1] #500000
 ii = np.where(np.logical_and(events["t"]>1, events["t"]<(STEP)))
@@ -53,7 +53,7 @@ optimized_velocity = event_warping.optimize_local(sensor_size=(width, height),
                                                 events=events[ii],
                                                 initial_velocity=initial_v,
                                                 heuristic_name=OBJECTIVE[1],
-                                                method=method[1],
+                                                method=SOLVER,
                                                 callback=callback)
 
 speed = [optimized_velocity[0],optimized_velocity[1]]
