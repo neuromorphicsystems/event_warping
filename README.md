@@ -15,7 +15,7 @@ Take input data in which the variance landscape has multiple extrema where one o
 </p>
 
 
-## ISS Datasets
+<!-- ## ISS Datasets
 Below is a short snippet of each data. From Right to Left: El Salvador, Houston, Brittany, Mexico, Washington, Spain, Summatra, UK, Egypt and Panama. 
 
 <p align="center">
@@ -38,7 +38,7 @@ Below is a short snippet of each data. From Right to Left: El Salvador, Houston,
   <img alt="Dark" src="./img/FN034HRTEgyptB_NADIR_cut4_exponential_frametime=20ms_tau=200ms.gif" width="20%"> 
 &nbsp; &nbsp; &nbsp; &nbsp;
   <img alt="Dark" src="./img/20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%"> 
-</p>
+</p> -->
 
 ## Install
 
