@@ -1,18 +1,22 @@
-# Density Invariant Contrast Maximisation for Neuromorphic Earth Observations
+# Density Invariant Contrast Maximisation for Neuromorphic Earth Observations [CVPRW2023]
 
 This contains the implementation of the paper "Density Invariant Contrast Maximisation for Neuromorphic Earth Observations".
 
-**Summary of the algorithm:** 
+> **Note:** ISS dataset will be available soon.
 
-Take input data in which the variance landscape has multiple extrema where one of those correspond to the correct motion parameters (Left), it then applies volume based correction on the warped image (Middle) to produce a landscape with a single peak which correspond to the motion parameters (Right). The entire network make use of the standard motion compensation algorithm but our method makes it resilient to data that is extremely dense and noisy.
+
+## Summary of the algorithm:
+
+Our proposed method takes events that have multiple peaks in its variance landscape, with one of them representing the correct motion parameters (left). It then applies an analytical geometric-based correction on the warped image (middle), to produces a landscape with a single peak that corresponds to the correct motion parameters (right). The method takes no prior of the camera motion and it does not require the event rate.
 
 <p align="center">
-  <img alt="Light" src="./img/before_correction.gif" width="23%">
+  <img alt="Light" src="./img/before_correction.gif" width="26%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/framework.png" width="40%">
+  <img alt="Dark" src="./img/proposed_method.png" width="35%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/after_correction.gif" width="24%">
+  <img alt="Dark" src="./img/after_correction.gif" width="26%">
 </p>
+
 
 
 <!-- ## ISS Datasets
@@ -126,3 +130,12 @@ Use this script to use an optimiser to quickly find the correct motion parameter
   <img alt="Light" src="./img/suezcanalfinalresults.gif" width="70%">
 </p>
 
+Citation:
+```bibtex
+@article{arja2023density,
+  title={Density Invariant Contrast Maximization for Neuromorphic Earth Observations},
+  author={Arja, Sami and Marcireau, Alexandre and Balthazor, Richard L and McHarg, Matthew G and Afshar, Saeed and Cohen, Gregory},
+  journal={arXiv preprint arXiv:2304.14125},
+  year={2023}
+}
+```

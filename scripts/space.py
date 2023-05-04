@@ -8,17 +8,21 @@ import sys
 import matplotlib.pyplot as plt
 import PIL.Image
 
+'''
+To REBUILD
+python3 -m pip install -e . && python scripts/space.py
+'''
 
-VIDEOS          = ["20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR"]
+VIDEOS          = ["20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5","20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR"]
 OBJECTIVE       = ["variance","weighted_variance","max"]
 FILENAME        = VIDEOS[0]
 HEURISTIC       = OBJECTIVE[1]
 VELOCITY_RANGE  = (-30, 30)
-RESOLUTION      = 50
-TMAX            = 30e6
+RESOLUTION      = 100
+TMAX            = 20e6
 RATIO           = 0.0000001
-READFROM        = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/data/es/NADIR/"
-SAVEFILETO      = "/media/sam/Samsung_T52/PhD/Code/orbital_localisation/img/"
+READFROM        = "/media/sam/Samsung_T53/PhD/Code/orbital_localisation/data/es/NADIR/"
+SAVEFILETO      = "/media/sam/Samsung_T53/PhD/Code/orbital_localisation/img/"
 
 numpy.seterr(divide='ignore', invalid='ignore')
 width, height, events = event_warping.read_es_file(READFROM + FILENAME + ".es")

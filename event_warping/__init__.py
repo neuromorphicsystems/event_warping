@@ -216,16 +216,16 @@ def weight_f2(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
     [i,j] = np.where((x > 0) & (x < width) & (y >= (vy*x)/vx) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx)/x[i,j]
-    middlePlan = (vx)/x[i,j]
+    upperBase = (vx)/x[i,j]
     # Condition 2:
     [i,j] = np.where((x >= width) & (x < vx) & (y >= vy) & (y < height))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 3:
     [i,j] = np.where((x >= width) & (x <= vx) & (y >= (vy*x)/vx) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 4:
     [i,j] = np.where((x >= width) & (x < vx) & (y >= height) & (y <= (vy/vx)*(x-width-vx)+vy+height))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 5:
     [i,j] = np.where((x > 0) & (x <= width) & (y > 0) & (y < (vy*x)/vx))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
@@ -310,20 +310,20 @@ def weight_f3(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     return eventmap.pixels
 
 def weight_f4(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
-    # Condition 7:
+    # Condition 1:
     [i,j] = np.where((x > vx) & (x < width) & (y >= 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vy)/y[i,j]
-    middlePlan = (vy)/y[i,j]
-    # Condition 1:
-    [i,j] = np.where((x > vx) & (x < width) & (y >= height) & (y <= vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    upperBase = (vy)/y[i,j]
     # Condition 2:
-    [i,j] = np.where((x > 0) & (x < vx) & (y > height) & (y < (vy*x)/vx))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    [i,j] = np.where((x > vx) & (x < width) & (y >= height) & (y <= vy))
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 3:
-    [i,j] = np.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    [i,j] = np.where((x > 0) & (x < vx) & (y > height) & (y < (vy*x)/vx))
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 4:
+    [i,j] = np.where((x >= width) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy))
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
+    # Condition 5:
     [i,j] = np.where((x > width) & (x < vx+width) & (y <= ((vy*(x-width))/vx)+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i-1,j-1]+width+vx)
     # Condition 6:
@@ -362,13 +362,13 @@ def weight_f4(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     return eventmap.pixels
 
 def weight_f5(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
-    # Condition 2:
+    # Condition 1:
     [i,j] = np.where((x > 0) & (x < width) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(x[i,j])
-    middlePlan = (vx)/(x[i,j])
-    # Condition 1:
+    upperBase = (vx)/(x[i,j])
+    # Condition 2:
     [i,j] = np.where((x > width) & (x < vx) & (y > (vy/vx)*(width-x)+vy) & (y < ((-vy*x)/(vx))+height+vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 3:
     [i,j] = np.where((x > vx) & (x < width+vx) & (y >= vy) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
@@ -411,16 +411,16 @@ def weight_f6(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
     [i,j] = np.where((x > vx) & (x < width) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vy)/(y[i,j])
-    middlePlan = (vy)/(y[i,j])
+    upperBase = (vy)/(y[i,j])
     # Condition 2:
     [i,j] = np.where((x > vx) & (x < width) & (y > height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 3:
     [i,j] = np.where((x > 0) & (x < vx) & (y > (-vy/vx)*x+vy+height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 4:
     [i,j] = np.where((x > width) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 5:
     [i,j] = np.where((x > vx) & (x < width) & (y > vy) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
@@ -463,41 +463,41 @@ def weight_f7(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 4:
     [i,j] = np.where((x > 0) & (x < width) & (y > 0) & (y <= (vy/vx)*x) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
-    middlePlan = vy/y[i,j]
+    upperBase = vy/y[i,j]
     # Condition 1:
     [i,j] = np.where((x > width) & (x < vx) & (y > (vy/vx)*(x-width)+height) & (y < (vy/vx)*x))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 2:
     [i,j] = np.where((x > 0) & (x <= width) & (y >= height) & (y < (vy/vx)*x))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 3:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
-    # Condition 5:
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
+    # Condition 4:
     [i,j] = np.where((x > 0) & (x < width) & (y > (vy/vx)*x) & (y <= height))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
-    # Condition 6:
+    # Condition 5:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)+height) & (y <= vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
-    # Condition 7:
+    # Condition 6:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width)+height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
-    # Condition 8:
+    # Condition 7:
     [i,j] = np.where((x >= width) & (x < vx) & (y > (vy/vx)*(x-width)) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
-    # Condition 9:
+    # Condition 8:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width)) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
-    # Condition 10:
+    # Condition 9:
     [i,j] = np.where((x >= width) & (x < vx) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
-    # Condition 11:
+    # Condition 10:
     [i,j] = np.where((x > 0) & (x < width) & (y > -(vy/vx)*x+height) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
-    # Condition 12:
+    # Condition 11:
     [i,j] = np.where((x > 0) & (x < vx) & (y > (vy/vx)*x) & (y < vy) & (y > height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx-vx*y[i,j]+vy*x[i,j])
-    # Condition 13:
+    # Condition 12:
     [i,j] = np.where((x > width) & (x < vx+width) & (y < (vy/vx)*(x-width)+height) & (y > height) & (y < vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
 
@@ -515,16 +515,16 @@ def weight_f8(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
     [i,j] = np.where((x > 0) & (x < width) & (y > 0) & (y < (vy/vx)*x) & (y > 0))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
-    middlePlan = vy/y[i,j]
+    upperBase = vy/y[i,j]
     # Condition 2:
     [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > height) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 3:
     [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > 0) & (y < height))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 4:
     [i,j] = np.where((x > width) & (x < vx) & (y < (vy/vx)*(x-width)+height) & (y > (vy/vx)*x) & (y > vy) & (y < vy+height))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
     # Condition 5:
     [i,j] = np.where((x > 0) & (x < width) & (y > (vy/vx)*x) & (y <= height))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
@@ -573,47 +573,47 @@ def weight_f9(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     # Condition 1:
     [i,j] = np.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
-    middlePlan = (vy)/(-y[i,j]+height+vy)
+    upperBase = (vy)/(-y[i,j]+height+vy)
     # Condition 2:
     [i,j] = np.where((x > width) & (x < vx) & (y > (-vy/vx)*x+height+vy) & (y < (vy/vx)*(-x+width+vx)))
-    eventmap.pixels[i+1,j+1] *= middlePlan[0]
+    eventmap.pixels[i+1,j+1] *= upperBase[0]
     # Condition 3:
     [i,j] = np.where((x > 0) & (x < width) & (y > (-vy/vx)*x+height+vy) & (y < vy))
-    eventmap.pixels[i+1,j+1] *= middlePlan[0]
+    eventmap.pixels[i+1,j+1] *= upperBase[0]
     # Condition 4:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > height) & (y < (vy/vx)*(-x+width+vx)))
-    eventmap.pixels[i+1,j+1] *= middlePlan[0]
+    eventmap.pixels[i+1,j+1] *= upperBase[0]
     # Condition 5:
     [i,j] = np.where((x > 0) & (x < width) & (y < (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
     # Condition 6:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y < (vy/vx)*(-x+width+vx)) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
-    # Condition 5:
+    # Condition 7:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > (vy/vx)*(-x+width+vx)) & (y < height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
-    # Condition 6:
+    # Condition 8:
     [i,j] = np.where((x > width) & (x < vx) & (y < height) & (y > 0))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
-    # Condition 7:
+    # Condition 9:
     [i,j] = np.where((x > 0) & (x < width) & (y < height) & (y > 0))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
-    # Condition 8:
+    # Condition 10:
     [i,j] = np.where((x > 0) & (x < width) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
-    # Condition 9:
+    # Condition 11:
     [i,j] = np.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y < (-vy/vx)*x+height+vy))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
-    # Condition 10:
+    # Condition 12:
     [i,j] = np.where((x > width) & (x < vx) & (y > vy) & (y < vy+height))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
-    # Condition 11:
+    # Condition 13:
     [i,j] = np.where((x > width) & (x < vx) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
-    # Condition 12:
+    # Condition 14:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > vy) & (y < height+vy))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
-    # Condition 13:
+    # Condition 15:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y > height) & (y < vy) & (y > (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= (vx*vy)/(height*vx+vx*vy-vx*y[i-1,j-1]+vy*width-vy*x[i-1,j-1])
 
@@ -628,23 +628,23 @@ def weight_f9(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
     return eventmap.pixels
 
 def weight_f10(x,y,vx,vy,width,height,eventmap,EDGEPX,remove_edge_pixels=True):
-    # Condition 6:
+    # Condition 1:
     [i,j] = np.where((x > width) & (x < vx) & (y <= height) & (y > 0) & (y < (vy/vx)*(-x+width+vx)))
     eventmap.pixels[i+1,j+1] *= -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
-    middlePlan = -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
-    # Condition 1:
-    [i,j] = np.where((x > width) & (x < vx) & (y < (-vy/vx)*x+height+vy) & (y > (vy/vx)*(-x+width+vx)))
-    eventmap.pixels[i+1,j+1] *= middlePlan[-1]
+    upperBase = -(vx*vy)/(vx*vy-vx*y[i,j]-vy*x[i,j])
     # Condition 2:
+    [i,j] = np.where((x > width) & (x < vx) & (y < (-vy/vx)*x+height+vy) & (y > (vy/vx)*(-x+width+vx)))
+    eventmap.pixels[i+1,j+1] *= upperBase[-1]
+    # Condition 3:
     [i,j] = np.where((x > 0) & (x <= width) & (y > (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= (vy)/(-y[i,j]+height+vy)
-    # Condition 3:
+    # Condition 4:
     [i,j] = np.where((x > 0) & (x <= width) & (y < (-vy/vx)*x+height+vy) & (y < vy+height) & (y > vy))
     eventmap.pixels[i+1,j+1] *= vx/x[i,j]
-    # Condition 4:
+    # Condition 5:
     [i,j] = np.where((x > vx) & (x < vx+width) & (y < (vy/vx)*(-x+width+vx)) & (y > 0) & (y < height))
     eventmap.pixels[i+1,j+1] *= vy/y[i,j]
-    # Condition 5:
+    # Condition 6:
     [i,j] = np.where((x >= vx) & (x < vx+width) & (y > (vy/vx)*(-x+width+vx)) & (y <= height))
     eventmap.pixels[i+1,j+1] *= (vx)/(-x[i,j]+width+vx)
     # Condition 7:
