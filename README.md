@@ -17,32 +17,11 @@ Our proposed method takes events that have multiple peaks in its variance landsc
   <img alt="Dark" src="./img/after_correction.gif" width="26%">
 </p>
 
-
-
-<!-- ## ISS Datasets
-Below is a short snippet of each data. From Right to Left: El Salvador, Houston, Brittany, Mexico, Washington, Spain, Summatra, UK, Egypt and Panama. 
+## Algorithm in action
 
 <p align="center">
-  <img alt="Light" src="./img/20220121a_Salvador_2022-01-21_20~58~34_NADIR.h5_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/20220125_Brittany_211945_2022-01-25_21-21-18_NADIR_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Light" src="./img/20220125_Mexican_Coast_205735_2022-01-25_20~58~52_NADIR.h5_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/20220201_DIA_201410_2022-02-01_20-15-58_NADIR_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/20220127_Biscay_Spain_Med_211912_2_2022-01-27_21-53-58_NADIR_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
- &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Light" src="./img/20220217_Sumatra_Night_2_2022-02-17_21_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/20230119_4_UK_Nadir_Night_2023-01-19_20~25~10_NADIR_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%">
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/FN034HRTEgyptB_NADIR_cut4_exponential_frametime=20ms_tau=200ms.gif" width="20%"> 
-&nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="Dark" src="./img/20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5_cut_exponential_frametime=20ms_tau=200ms.gif" width="20%"> 
-</p> -->
+  <img alt="Light" src="./img/density_invariant_CMX.gif" width="80%">
+</p>
 
 ## Install
 
