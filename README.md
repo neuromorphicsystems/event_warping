@@ -20,7 +20,7 @@ Our proposed method takes events that have multiple peaks in its variance landsc
 ## Algorithm in action
 
 <p align="center">
-  <img alt="Light" src="./img/density_invariant_CMX.gif" width="80%">
+  <img alt="Light" src="./img/density_invariant_CMXgif.gif" width="80%">
 </p>
 
 ## Install
