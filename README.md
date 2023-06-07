@@ -92,7 +92,7 @@ This outputs the loss landscape across vx and vy. This is the difference between
   <img alt="Light" src="./img/landscape_before_after.png" width="70%">
 </p> 
 
-Alternatinely you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `SOLVER` and `HEURISTIC` options in `scripts/find_theta.py`.
+Alternatinely you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `SOLVER` and `HEURISTIC` options in `scripts/OptimizeCMax.py`.
 
 To learn more about the analytical solution of the variance, please see the jupyter notebook [analysis_1d.ipynb](scripts/analysis_1d.ipynb) and [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
 
