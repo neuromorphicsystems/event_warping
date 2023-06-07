@@ -2,84 +2,106 @@ import concurrent.futures
 import event_warping
 import itertools
 import json
-import numpy
-import pathlib
-import sys
+import numpy as np
 import matplotlib.pyplot as plt
 import PIL.Image
+from typing import Tuple
 
-'''
-To REBUILD
-python3 -m pip install -e . && python scripts/space.py
-'''
 
-VIDEOS          = ["20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5","20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR"]
-OBJECTIVE       = ["variance","weighted_variance","max"]
-FILENAME        = VIDEOS[0]
-HEURISTIC       = OBJECTIVE[1]
-VELOCITY_RANGE  = (-30, 30)
-RESOLUTION      = 100
-TMAX            = 20e6
-RATIO           = 0.0000001
-READFROM        = "/media/sam/Samsung_T53/PhD/Code/orbital_localisation/data/es/NADIR/"
-SAVEFILETO      = "/media/sam/Samsung_T53/PhD/Code/orbital_localisation/img/"
+class DensityInvariantCMax:
 
-numpy.seterr(divide='ignore', invalid='ignore')
-width, height, events = event_warping.read_es_file(READFROM + FILENAME + ".es")
-events = event_warping.without_most_active_pixels(events, ratio=0.000001)
-ii = numpy.where(numpy.logical_and(events["t"]>1, events["t"]<(TMAX)))
-events = events[ii]
-print(f"{len(events)=}")
+    OBJECTIVE = {
+        "variance": event_warping.intensity_variance,
+        "weighted_variance": event_warping.intensity_weighted_variance,
+        "max": event_warping.intensity_maximum
+    }
 
-def calculate_heuristic(velocity: tuple[float, float]):
-    if HEURISTIC == "variance":
-        return event_warping.intensity_variance((width, height), events, velocity)
-    if HEURISTIC == "weighted_variance":
-        return event_warping.intensity_weighted_variance((width, height), events, velocity)
-    if HEURISTIC == "max":
-        return event_warping.intensity_maximum((width, height), events, velocity)
-    raise Exception("unknown heuristic")
+    def __init__(self, filename: str, heuristic: str, velocity_range: Tuple[float, float], resolution: int, 
+                 ratio: float, tstart: int, tfinish: int, read_path: str, save_path: str):
 
-with concurrent.futures.ThreadPoolExecutor() as executor:
-    scalar_velocities = list(
-        numpy.linspace(
-            VELOCITY_RANGE[0],
-            VELOCITY_RANGE[1],
-            RESOLUTION,
-        )
-    )
-    values = []
-    for value in executor.map(
-        calculate_heuristic,
-        (
-            (velocity[1] * 1e-6, velocity[0] * 1e-6)
-            for velocity in itertools.product(scalar_velocities, scalar_velocities)
-        ),
-    ):
-        values.append(value)
-        sys.stdout.write(
-            f"\r{len(values)} / {RESOLUTION ** 2} ({(len(values) / (RESOLUTION ** 2) * 100):.2f} %)"
-        )
-        sys.stdout.flush()
-    sys.stdout.write("\n")
-    with open(
-        f"{SAVEFILETO + FILENAME}_{HEURISTIC}_{VELOCITY_RANGE[0]}_{VELOCITY_RANGE[1]}_{RESOLUTION}_{RATIO}.json",
-        "w",
-    ) as output:
-        json.dump(values, output)
+        self.filename       = filename
+        self.heuristic      = heuristic
+        self.velocity_range = velocity_range
+        self.resolution     = resolution
+        self.ratio          = ratio
+        self.tstart         = tstart
+        self.tfinish        = tfinish
+        self.read_path      = read_path
+        self.save_path      = save_path
 
-    #### MAKE FIGURE
-    with open(
-    f"{SAVEFILETO + FILENAME}_{HEURISTIC}_{VELOCITY_RANGE[0]}_{VELOCITY_RANGE[1]}_{RESOLUTION}_{RATIO}.json"
-    ) as input:
-        pixels = numpy.reshape(
-            json.load(input), (RESOLUTION, RESOLUTION)
-        )
+        np.seterr(divide='ignore', invalid='ignore')  # Ignore divide and invalid errors
 
-    colormap = plt.get_cmap("magma")
-    gamma = lambda image: image ** (1 / 2)
-    scaled_pixels = gamma((pixels - pixels.min()) / (pixels.max() - pixels.min()))
-    image = PIL.Image.fromarray((colormap(scaled_pixels)[:, :, :3] * 255).astype(numpy.uint8))
-    im1 = image.rotate(90, PIL.Image.NEAREST, expand = 1)
-    new_im1 = im1.resize((400, 400))
-    im1 = new_im1.save(SAVEFILETO+FILENAME+"_"+str(VELOCITY_RANGE[0])+"_"+str(VELOCITY_RANGE[1])+"_"+str(RESOLUTION)+"_"+str(RATIO)+".png")
+    def load_and_preprocess_events(self):
+        width, height, events = event_warping.read_es_file(self.read_path + self.filename + ".es")
+        events = event_warping.without_most_active_pixels(events, ratio=self.ratio)
+        self.events = events[np.where(np.logical_and(events["t"] > self.tstart, events["t"] < self.tfinish))]
+
+        print(f"Number of events: {len(self.events)}")
+
+        self.size = (width, height)
+
+    def calculate_heuristic(self, velocity: Tuple[float, float]):
+        """Calculate the heuristic based on the method specified"""
+        return self.OBJECTIVE[self.heuristic](self.size, self.events, velocity)
+
+    def process_velocity_grid(self):
+        """Compute the heuristic for a grid of velocities using concurrent processing"""
+        scalar_velocities = np.linspace(*self.velocity_range, self.resolution)
+        values = []
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            for value in executor.map(
+                self.calculate_heuristic,
+                ((vx, vy) for vx, vy in itertools.product(scalar_velocities, scalar_velocities))
+            ):
+                values.append(value)
+                print(f"\rProcessed {len(values)} / {self.resolution ** 2} "
+                      f"({(len(values) / (self.resolution ** 2) * 100):.2f} %)", end='')
+                
+        return values
+
+    def save_values(self, values: list):
+        """Save the computed values to a JSON file"""
+        output_file = f"{self.save_path + self.filename}_{self.heuristic}_{self.velocity_range[0]}_" \
+                      f"{self.velocity_range[1]}_{self.resolution}_{self.ratio}.json"
+        with open(output_file, "w") as output:
+            json.dump(values, output)
+
+        return output_file
+
+    def generate_image(self, output_file: str):
+        """Generate an image from the computed values and save it as a PNG"""
+        with open(output_file) as input:
+            pixels = np.reshape(json.load(input), (self.resolution, self.resolution))
+
+        colormap = plt.get_cmap("magma")
+        scaled_pixels = ((pixels - pixels.min()) / (pixels.max() - pixels.min())) ** (1 / 2)
+        image = PIL.Image.fromarray((colormap(scaled_pixels)[:, :, :3] * 255).astype(np.uint8))
+        resized_image = image.rotate(90, PIL.Image.NEAREST, expand=1).resize((400, 400))
+        
+        resized_image.save(self.save_path + self.filename + 
+                           f"_{self.velocity_range[0]}_{self.velocity_range[1]}_{self.resolution}_{self.ratio}.png")
+
+    def process(self):
+        """Main method to run the processing pipeline"""
+        self.load_and_preprocess_events()
+        values = self.process_velocity_grid()
+        output_file = self.save_values(values)
+        self.generate_image(output_file)
+
+if __name__ == "__main__":
+    # Define the list of events and objectives
+    EVENTS = [
+        "20230112_13_aus_melbourne_nadir_day_2023-01-13_05~38~28_NADIR",
+        "20220125_New_Zealand_220728_2022-01-25_22-09-42_NADIR",
+        "FN034HRTEgyptB_NADIR",
+        "20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5",
+        "20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR"
+    ]
+
+    OBJECTIVE = ["variance","weighted_variance","max"]
+    calculator = DensityInvariantCMax(filename=EVENTS[-1], heuristic=OBJECTIVE[1], velocity_range=(-30, 30), 
+                                     resolution=30, ratio=0.0000001, tstart=0, tfinish = 50e6,
+                                     read_path="/home/samiarja/Desktop/PhD/Code/orbital_localisation/data/es/NADIR/",
+                                     save_path="/home/samiarja/Desktop/PhD/Code/orbital_localisation/img/")
+    calculator.process()
