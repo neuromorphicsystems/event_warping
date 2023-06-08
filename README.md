@@ -97,4 +97,5 @@ Alternatinely you can choose not to compute the variance for every single $v_x$ 
 
 To learn more about how we modelled the problem and solution analytically, please see the jupyter notebook [analysis_1d.ipynb](scripts/analysis_1d.ipynb) and [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
 
-To see how the analytical solution was applied on real-world ISS data: [DensityInvariantCMax.py](scripts/DensityInvariantCMax.py)
+
+For the actual implementation on the real-world ISS data: [implementation.py](scripts/implementation.py)
