@@ -52,7 +52,7 @@ class DensityInvariantCMax:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for value in executor.map(
                 self.calculate_heuristic,
-                ((vx, vy) for vx, vy in itertools.product(scalar_velocities, scalar_velocities))
+                ((vx * 1e-6, vy * 1e-6) for vx, vy in itertools.product(scalar_velocities, scalar_velocities))
             ):
                 values.append(value)
                 print(f"\rProcessed {len(values)} / {self.resolution ** 2} "
@@ -80,7 +80,7 @@ class DensityInvariantCMax:
         resized_image = image.rotate(90, PIL.Image.NEAREST, expand=1).resize((400, 400))
         
         resized_image.save(self.save_path + self.filename + 
-                           f"_{self.velocity_range[0]}_{self.velocity_range[1]}_{self.resolution}_{self.ratio}.png")
+                           f"_{self.velocity_range[0]}_{self.velocity_range[1]}_{self.resolution}_{self.heuristic}.png")
 
     def process(self):
         """Main method to run the processing pipeline"""
@@ -92,16 +92,17 @@ class DensityInvariantCMax:
 if __name__ == "__main__":
     # Define the list of events and objectives
     EVENTS = [
-        "20230112_13_aus_melbourne_nadir_day_2023-01-13_05~38~28_NADIR",
-        "20220125_New_Zealand_220728_2022-01-25_22-09-42_NADIR",
-        "FN034HRTEgyptB_NADIR",
-        "20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5",
-        "20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR"
+        "simple_noisy_events_with_motion"
     ]
 
     OBJECTIVE = ["variance","weighted_variance","max"]
-    calculator = DensityInvariantCMax(filename=EVENTS[-1], heuristic=OBJECTIVE[1], velocity_range=(-30, 30), 
-                                     resolution=30, ratio=0.0000001, tstart=0, tfinish = 50e6,
-                                     read_path="/home/samiarja/Desktop/PhD/Code/orbital_localisation/data/es/NADIR/",
-                                     save_path="/home/samiarja/Desktop/PhD/Code/orbital_localisation/img/")
+    calculator = DensityInvariantCMax(filename=EVENTS[0],
+                                      heuristic=OBJECTIVE[0],
+                                      velocity_range=(-50, 50),
+                                      resolution=30,
+                                      ratio=0.0000001,
+                                      tstart=0,
+                                      tfinish = 40e6,
+                                      read_path="./data/",
+                                      save_path="./img/")
     calculator.process()

@@ -92,29 +92,8 @@ This outputs the loss landscape across vx and vy. This is the difference between
   <img alt="Light" src="./img/landscape_before_after.png" width="70%">
 </p> 
 
-Alternatinely you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `SOLVER` and `HEURISTIC` options in `scripts/OptimizeCMax.py`.
+Alternatinely you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `SOLVER` and `HEURISTIC` options in `scripts/find_theta.py`.
 
 To learn more about the analytical solution of the variance, please see the jupyter notebook [analysis_1d.ipynb](scripts/analysis_1d.ipynb) and [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
 
-<<<<<<< HEAD
-
-Use this script to use an optimiser to quickly find the correct motion parameters, without doing an exhaustive search across the entire motion space. The script includes a gradient-based (BFGS) and non-gradiend-based (Nedler-mead) optimiser as well as other optimisation methods for testing. If you wish to add another optimisation method or/and heuristic, see `event_warping` class.
-
-# An example of the motion corrected output from the ISS (Over Suez Canal, Egypt)
-
-<p align="center">
-  <img alt="Light" src="./img/suezcanalfinalresults.gif" width="70%">
-</p>
-
-Citation:
-```bibtex
-@article{arja2023density,
-  title={Density Invariant Contrast Maximization for Neuromorphic Earth Observations},
-  author={Arja, Sami and Marcireau, Alexandre and Balthazor, Richard L and McHarg, Matthew G and Afshar, Saeed and Cohen, Gregory},
-  journal={arXiv preprint arXiv:2304.14125},
-  year={2023}
-}
-```
-=======
 To see how the analytical solution was applied on real-world ISS data: [DensityInvariantCMax.py](scripts/DensityInvariantCMax.py)
->>>>>>> 3e911ab (reorganise and simplify the structure of the correction functions and edit README)
