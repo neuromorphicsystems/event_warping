@@ -15,6 +15,7 @@ Code for [Density Invariant Contrast Maximization for Neuromorphic Earth Observa
 
 > **Note:**  The publication of raw data is currently undergoing a review process by the Air Force Research Lab (AFRL). For further information or inquiries regarding the publication status and availability of the data, please feel free to contact us directly.
 
+A simple noisy and dense data is provided in `data/simple_noisy_events_with_motion.es` to run the algorithm.
 
 ## Summary of the algorithm:
 
@@ -92,8 +93,8 @@ This outputs the loss landscape across vx and vy. This is the difference between
   <img alt="Light" src="./img/landscape_before_after.png" width="70%">
 </p> 
 
-Alternatinely you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `SOLVER` and `HEURISTIC` options in `scripts/find_theta.py`.
+Alternatinely you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/OptimizeCMax.py`.
 
-To learn more about the analytical solution of the variance, please see the jupyter notebook [analysis_1d.ipynb](scripts/analysis_1d.ipynb) and [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
+To learn more about how we modelled the problem and solution analytically, please see the jupyter notebook [analysis_1d.ipynb](scripts/analysis_1d.ipynb) and [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
 
 To see how the analytical solution was applied on real-world ISS data: [DensityInvariantCMax.py](scripts/DensityInvariantCMax.py)
