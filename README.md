@@ -17,9 +17,9 @@ Code for [Density Invariant Contrast Maximization for Neuromorphic Earth Observa
 
 A simple noisy and dense data is provided in `data/simple_noisy_events_with_motion.es` to run the algorithm.
 
-## Summary of the algorithm:
+## Summary
 
-The proposed method takes events as input, which can be very dense and noisy, and the temporal window can be arbitrarily large. Without any prior knowledge of the camera motion, it applies an analytical geometric-based correction on the warped image to ensure high contrast when the events are optimally aligned. By employing this approach, the method guarantees a convex loss surface, particularly in dense scenes.
+This paper addresses the problem of the noise intolerance in Contrast Maximization framework and proposed an analytical solution to it. The solution was evaluated on dense event data from the ISS.
 
 <p align="center">
   <img alt="Light" src="./img/before_correction.gif" width="26%">
@@ -93,7 +93,7 @@ This outputs the loss landscape across vx and vy. This is the difference between
   <img alt="Light" src="./img/landscape_before_after.png" width="70%">
 </p> 
 
-Alternatinely you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/OptimizeCMax.py`.
+Alternatively you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/OptimizeCMax.py`.
 
 To learn more about how we modelled the problem and solution analytically, please see the jupyter notebook [analysis_1d.ipynb](scripts/analysis_1d.ipynb) and [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
 
