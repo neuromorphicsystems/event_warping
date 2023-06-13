@@ -71,21 +71,28 @@ The installation process compiles the event_warping_extension, which is required
 
 ## Usage
 
-In **`scripts/DensityInvariantCMax.py`**:
+This documentation provides instructions for utilizing the code and exploring various functionalities. Follow the steps below to get started.
 
-Specify the parameters and run the code.
+#### Dataset format
+The input events are assumed to be in the [event_stream (.es)](https://github.com/neuromorphicsystems/event_stream) format. Please refer to the [loris](https://github.com/neuromorphic-paris/loris) library to convert to/from .es format.
+
+#### Generating Loss Landscape
+To generate the loss landscape w.r.t the motion parameters [$v_x$,$v_y$], use `DensityInvariantCMax.py`:
+
+First adjust the parameters as necessary.:
 
 ```
-DensityInvariantCMax(filename=EVENTS[-1], 
-                     heuristic="weighted_variance", 
-                     velocity_range=(-30, 30), 
-                     resolution=30, 
-                     ratio=0.0000001, 
-                     tstart=0, 
-                     tfinish = 50e6,
-                     read_path="./data/",
-                     save_path="./img/")
+DensityInvariantCMax(filename="path_to_your_event_data",
+                     heuristic=OBJECTIVE[1],
+                     velocity_range=(-50, 50),
+                     resolution=50,
+                     ratio=0.0,
+                     tstart=0,
+                     tfinish=40e6,
+                     read_path="data/",
+                     save_path="img/")
 ```
+and run `python DensityInvariantCMax.py`
 
 This outputs the loss landscape across vx and vy. This is the difference between the landscapes if you used the `heuristic="variance"` (Left) and `heuristic="weighted_variance"` (Right)
 
@@ -93,9 +100,36 @@ This outputs the loss landscape across vx and vy. This is the difference between
   <img alt="Light" src="./img/landscape_before_after.png" width="70%">
 </p> 
 
+
+#### Solvers
+
 Alternatively you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/OptimizeCMax.py`.
 
-To learn more about how we modelled the problem and solution analytically, please see the jupyter notebook [analysis_1d.ipynb](scripts/analysis_1d.ipynb) and [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
+```
+OptimizeCMax(filename="path_to_your_event_data", 
+             objective=objective[1], 
+             solver=solver[0], 
+             tmax=10e6, 
+             ratio=0.0,
+             read_from="data/")
+```
+and run `python OptimizeCMax.py`
 
+#### Analytical Modeling
 
-For the actual implementation on the real-world ISS data: [implementation.py](scripts/implementation.py)
+For a detailed understanding of the analytical modeling approach, refer to the provided Jupyter notebooks:
+- [analysis_1d.ipynb](scripts/analysis_1d.ipynb)
+- [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
+
+These notebooks contain explanations and code snippets showcasing the analytical approach.
+
+#### Real-World Implementation
+
+For the actual implementation on the real-world ISS data: 
+- [implementation.py](scripts/implementation.py)
+
+#### Extending Heuristics and Solvers
+
+To implement a new heuristic and/or a new solver, you can edit the file inside: `event_warping/*.py`, or if you want to implement them in C++ then you can edit the file inside `event_warping_extension/*.cpp`. However, if you edit the .cpp file, you have to run this command in the terminal to enable the changes:
+
+```python3 -m pip install -e .```

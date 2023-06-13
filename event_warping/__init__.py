@@ -17,7 +17,6 @@ import PIL.ImageDraw
 import PIL.ImageFont
 import scipy.optimize
 import typing
-from PIL import ImageDraw
 
 def read_es_file(
     path: typing.Union[pathlib.Path, str]
@@ -62,12 +61,9 @@ def without_most_active_pixels(events: np.ndarray, ratio: float):
     assert ratio >= 0.0 and ratio <= 1.0
     count = np.zeros((events["x"].max() + 1, events["y"].max() + 1), dtype="<u8")
     np.add.at(count, (events["x"], events["y"]), 1)  # type: ignore
-    return events[
-        count[events["x"], events["y"]]
-        <= np.percentile(count, 100.0 * (1.0 - ratio))
-    ]
+    return events[count[events["x"], events["y"]]<= np.percentile(count, 100.0 * (1.0 - ratio))]
 
-def with_most_active_pixels(events: np.ndarray, ratio: float):
+def with_most_active_pixels(events: np.ndarray):
     return events[events["x"], events["y"]]
 
 # velocity in px/us
@@ -123,7 +119,7 @@ def render(
     gamma: typing.Callable[[np.ndarray], np.ndarray],
     bounds: typing.Optional[tuple[float, float]] = None,
 ):
-    colormap = matplotlib.pyplot.get_cmap(colormap_name)
+    colormap = matplotlib.pyplot.get_cmap(colormap_name) # type: ignore
     if bounds is None:
         bounds = (cumulative_map.pixels.min(), cumulative_map.pixels.max())
     scaled_pixels = gamma(
@@ -164,18 +160,12 @@ def intensity_variance(
         velocity[1],
     )
 
-def VarianceLossCalculator(evmap):
+def variance_loss_calculator(evmap: np.ndarray):
     flating = evmap.flatten()
     res = flating[flating != 0]
     return np.var(res)
 
-# Check if the folder exists
-img_path = "../img/weight_map/"
-if not os.path.exists(img_path):
-    os.makedirs(img_path)
-
-
-def correction(i, j, x, y, vx, vy, width, height):
+def correction(i: np.ndarray, j: np.ndarray, x: np.ndarray, y: np.ndarray, vx: int, vy: int, width: int, height: int):
     return {
         '1': (1, vx / width, vy / height),
         '2': vx / x[i, j],
@@ -187,10 +177,10 @@ def correction(i, j, x, y, vx, vy, width, height):
     }
 
 
-def alpha_1(imageOfWarpedEvents, x, y, vx, vy, width, height, EDGEPX):
+def alpha_1(warped_image: np.ndarray, x: np.ndarray, y: np.ndarray, vx: int, vy: int, width: int, height: int, edgepx: int):
     """
     Input:
-    imageOfWarpedEvents: A 2D numpy array representing the warped image, where pixel values represent the event count.
+    warped_image: A 2D numpy array representing the warped image, where pixel values represent the event count.
 
     This function apply a correction on the warped image based on a set of conditions where vx < w and vy < h. The conditions are designed based on the pixel's 
     x and y positions and additional parameters (vx, vy, width, height).
@@ -213,24 +203,24 @@ def alpha_1(imageOfWarpedEvents, x, y, vx, vy, width, height, EDGEPX):
         i, j = np.where(condition)            
         correction_func = correction(i, j, x, y, vx, vy, width, height)
         if idx == 1:
-            imageOfWarpedEvents[i+1, j+1] *= correction_func[str(idx)][0]
+            warped_image[i+1, j+1] *= correction_func[str(idx)][0]
         else:    
-            imageOfWarpedEvents[i+1, j+1] *= correction_func[str(idx)]
+            warped_image[i+1, j+1] *= correction_func[str(idx)]
 
-    imageOfWarpedEvents[x > width+vx-EDGEPX] = 0
-    imageOfWarpedEvents[x < EDGEPX] = 0
-    imageOfWarpedEvents[y > height+vy-EDGEPX] = 0
-    imageOfWarpedEvents[y < EDGEPX] = 0
-    imageOfWarpedEvents[y < ((vy*(x-width)) / vx) + EDGEPX] = 0
-    imageOfWarpedEvents[y > (((vy*x) / vx) + height) - EDGEPX] = 0
-    imageOfWarpedEvents[np.isnan(imageOfWarpedEvents)] = 0
-    return imageOfWarpedEvents
+    warped_image[x > width+vx-edgepx] = 0
+    warped_image[x < edgepx] = 0
+    warped_image[y > height+vy-edgepx] = 0
+    warped_image[y < edgepx] = 0
+    warped_image[y < ((vy*(x-width)) / vx) + edgepx] = 0
+    warped_image[y > (((vy*x) / vx) + height) - edgepx] = 0
+    warped_image[np.isnan(warped_image)] = 0
+    return warped_image
 
 
-def alpha_2(imageOfWarpedEvents, x, y, vx, vy, width, height, EDGEPX, section: int):
+def alpha_2(warped_image: np.ndarray, x: np.ndarray, y: np.ndarray, vx: int, vy: int, width: int, height: int, edgepx: int, section: int):
     """
     Input:
-    imageOfWarpedEvents: A 2D numpy array representing the warped image, where pixel values represent the event count.
+    warped_image: A 2D numpy array representing the warped image, where pixel values represent the event count.
 
     This function apply a correction on the warped image based on a set of conditions where vx > w and vy > h. The conditions are designed based on the pixel's 
     x and y positions and additional parameters (vx, vy, width, height).
@@ -264,88 +254,69 @@ def alpha_2(imageOfWarpedEvents, x, y, vx, vy, width, height, EDGEPX, section: i
         i, j = np.where(condition)
         correction_func = correction(i, j, x, y, vx, vy, width, height)
         if idx == 1:
-            imageOfWarpedEvents[i+1, j+1] *= correction_func[str(idx)][section]
+            warped_image[i+1, j+1] *= correction_func[str(idx)][section]
         else:    
-            imageOfWarpedEvents[i+1, j+1] *= correction_func[str(idx)]
+            warped_image[i+1, j+1] *= correction_func[str(idx)]
 
-    imageOfWarpedEvents[x > width+vx-EDGEPX] = 0
-    imageOfWarpedEvents[x < EDGEPX] = 0
-    imageOfWarpedEvents[y > height+vy-EDGEPX] = 0
-    imageOfWarpedEvents[y < EDGEPX] = 0
-    imageOfWarpedEvents[y < ((vy*(x-width)) / vx) + EDGEPX] = 0
-    imageOfWarpedEvents[y > (((vy*x) / vx) + height) - EDGEPX] = 0
-    imageOfWarpedEvents[np.isnan(imageOfWarpedEvents)] = 0
-    return imageOfWarpedEvents
+    warped_image[x > width+vx-edgepx] = 0
+    warped_image[x < edgepx] = 0
+    warped_image[y > height+vy-edgepx] = 0
+    warped_image[y < edgepx] = 0
+    warped_image[y < ((vy*(x-width)) / vx) + edgepx] = 0
+    warped_image[y > (((vy*x) / vx) + height) - edgepx] = 0
+    warped_image[np.isnan(warped_image)] = 0
+    return warped_image
 
-def mirror_iwe(image):
+def mirror(warped_image: np.ndarray):
     mirrored_image = []
-    height, width = len(image), len(image[0])
+    height, width = len(warped_image), len(warped_image[0])
     for i in range(height):
         mirrored_row = []
         for j in range(width - 1, -1, -1):
-            mirrored_row.append(image[i][j])
+            mirrored_row.append(warped_image[i][j])
         mirrored_image.append(mirrored_row)
     return np.array(mirrored_image)
 
-def mirror(image, mirror_x: bool, mirror_y: bool):
-    new_image = image.copy()
-    for y in range(0, new_image.shape[0]):
-        for x in range(0, new_image.shape[1]):
-            if mirror_x:
-                new_x = new_image.shape[0] - 1 - x
-            else:
-                new_x = x
-            if mirror_y:
-                new_y = new_image.shape[1] - 1 - y
-            else:
-                new_y = y                
-            new_image[new_y, new_x] = image[y, x]
-    return np.array(new_image)
-
 def intensity_weighted_variance(sensor_size: tuple[int, int],events: np.ndarray,velocity: tuple[float, float]):
     np.seterr(divide='ignore', invalid='ignore')
-    t           = (events["t"][-1]-events["t"][0])/1e6
-    EDGEPX      = t
-    fun_idx     = 0
-    width       = sensor_size[0]
-    height      = sensor_size[1]
-    fieldx      = velocity[0]
-    fieldy      = velocity[1]
-    velocity    = (fieldx * 1e-6, fieldy * 1e-6)
-    iwe         = accumulate(sensor_size, events, velocity)
-    vx          = np.abs(fieldx*t)
-    vy          = np.abs(fieldy*t)
-    x           = np.tile(np.arange(1, iwe.pixels.shape[1]+1), (iwe.pixels.shape[0], 1))
-    y           = np.tile(np.arange(1, iwe.pixels.shape[0]+1), (iwe.pixels.shape[1], 1)).T
-
+    t               = (events["t"][-1]-events["t"][0])/1e6
+    edgepx          = t
+    width           = sensor_size[0]
+    height          = sensor_size[1]
+    fieldx          = velocity[0] / 1e-6
+    fieldy          = velocity[1] / 1e-6
+    velocity        = (fieldx * 1e-6, fieldy * 1e-6)
+    warped_image    = accumulate(sensor_size, events, velocity)
+    vx              = np.abs(fieldx*t)
+    vy              = np.abs(fieldy*t)
+    x               = np.tile(np.arange(1, warped_image.pixels.shape[1]+1), (warped_image.pixels.shape[0], 1))
+    y               = np.tile(np.arange(1, warped_image.pixels.shape[0]+1), (warped_image.pixels.shape[1], 1)).T
+    corrected_iwe   = None
+    var             = 0.0
+    
     if (fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height):
-        fun_idx                 += 1
-        corrected_iwe            = alpha_1(iwe.pixels, x, y, vx, vy, width, height, EDGEPX)
+        corrected_iwe            = alpha_1(warped_image.pixels, x, y, vx, vy, width, height, edgepx)
         
     if (fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)<=height):
-        fun_idx                 += 2
-        iwe.pixels              = mirror_iwe(iwe.pixels)
-        corrected_iwe           = alpha_1(iwe.pixels, x, y, vx, vy, width, height, EDGEPX)
+        warped_image.pixels     = mirror(warped_image.pixels)
+        corrected_iwe           = alpha_1(warped_image.pixels, x, y, vx, vy, width, height, edgepx)
         
     if (fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height) or ((((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height) or ((((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height):
-        fun_idx                 += 3
-        corrected_iwe            = alpha_2(iwe.pixels, x, y, vx, vy, width, height, EDGEPX, 1)
+        corrected_iwe            = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 1)
 
     if (fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height) or (fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height) or ((((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height) or ((((vy/vx)*width)-height)/(np.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height):
-        fun_idx                 += 4
-        corrected_iwe            = alpha_2(iwe.pixels, x, y, vx, vy, width, height, EDGEPX, 2)
+        corrected_iwe            = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 2)
 
     if (fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)<=height) or ((height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height) or ((height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height):
-        fun_idx                 += 5
-        iwe.pixels              = mirror_iwe(iwe.pixels)
-        corrected_iwe           = alpha_2(iwe.pixels, x, y, vx, vy, width, height, EDGEPX, 1)
+        warped_image.pixels     = mirror(warped_image.pixels)
+        corrected_iwe           = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 1)
 
     if (fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height) or (fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)<=width and np.abs(fieldy*t)>=height) or ((height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height) or ((height+vy-(vy/vx)*(width+vx))/(np.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and np.abs(fieldx*t)>=width and np.abs(fieldy*t)>=height):
-        fun_idx                 += 6
-        iwe.pixels              = mirror_iwe(iwe.pixels)
-        corrected_iwe           = alpha_2(iwe.pixels, x, y, vx, vy, width, height, EDGEPX, 2)
+        warped_image.pixels     = mirror(warped_image.pixels)
+        corrected_iwe           = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 2)
     
-    var = VarianceLossCalculator(corrected_iwe)
+    if corrected_iwe is not None:
+        var = variance_loss_calculator(corrected_iwe)
     return var
 
 def intensity_maximum(
@@ -413,7 +384,7 @@ def optimize_local(
         ).x
         return (float(result[0]) / 1e3, float(result[1]) / 1e3)
     else:
-        print("optimisation method is not support.")
+        raise Exception(f'unknown optimisation method: "{method}"')
 
 def optimize_cma(
     sensor_size: tuple[int, int],
@@ -442,7 +413,7 @@ def optimize_cma(
                 events,
                 velocity=(velocity[0] / 1e3, velocity[1] / 1e3))
         else:
-            raise Exception(f'unnknown heuristic name "{heuristic_name}"')
+            raise Exception(f'unknown heuristic name "{heuristic_name}"')
 
     optimizer = cmaes.CMA(
         mean=np.array(initial_velocity) * 1e3,
