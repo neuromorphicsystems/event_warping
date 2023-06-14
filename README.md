@@ -1,6 +1,39 @@
-# event_warping
+# Density Invariant Contrast Maximization for Neuromorphic Earth Observations [CVPRW2023]
 
-Event warping experiments.
+Code for [Density Invariant Contrast Maximization for Neuromorphic Earth Observations](https://arxiv.org/abs/2304.14125).
+
+```bibtex
+@InProceedings{arjaDensityInvariantCMax2023,
+    author    = {Arja, Sami and Marcireau, Alexandre and Balthazor, Richard L. and McHarg, Matthew G. and Afshar, Saeed and Cohen, Gregory},
+    title     = {Density Invariant Contrast Maximization for Neuromorphic Earth Observations},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
+    month     = {June},
+    year      = {2023},
+    pages     = {3983-3993}
+}
+```
+
+> **Note:**  The publication of raw data is currently undergoing a review process by the Air Force Research Lab (AFRL). For further information or inquiries regarding the publication status and availability of the data, please feel free to contact us directly.
+
+A simple noisy and dense data is provided in `data/simple_noisy_events_with_motion.es` to run the algorithm.
+
+## Summary
+
+This paper addresses the problem of the noise intolerance in Contrast Maximization framework and proposed an analytical solution to it. The solution was evaluated on dense event data from the ISS.
+
+<p align="center">
+  <img alt="Light" src="./img/before_correction.gif" width="26%">
+&nbsp; &nbsp; &nbsp; &nbsp;
+  <img alt="Dark" src="./img/proposed_method.png" width="35%">
+&nbsp; &nbsp; &nbsp; &nbsp;
+  <img alt="Dark" src="./img/after_correction.gif" width="26%">
+</p>
+
+## Algorithm in action
+
+<p align="center">
+  <img alt="Light" src="./img/density_invariant_CMX.gif" width="80%">
+</p>
 
 ## Install
 
@@ -29,38 +62,74 @@ The installation process compiles the event_warping_extension, which is required
     Start > Windows Powershell > Right click > Run as Administator
 
     ```powershell
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 2072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
     choco install -y visualstudio2019buildtools
     choco install -y visualstudio2019-workload-vctools
     ```
 
     See https://chocolatey.org for details.
 
-## Example
+## Usage
 
-Before running the example, create a directory called _recordings_ in the _event_warping_ directory and place _20220124_201028_Panama_2022-01-24_20~12~11_NADIR.h5_ in _recordings_.
+This documentation provides instructions for utilizing the code and exploring various functionalities. Follow the steps below to get started.
+
+#### Dataset format
+The input events are assumed to be in the [event_stream (.es)](https://github.com/neuromorphicsystems/event_stream) format. Please refer to the [loris](https://github.com/neuromorphic-paris/loris) library to convert to/from .es format.
+
+#### Generating Loss Landscape
+To generate the loss landscape w.r.t the motion parameters [$v_x$,$v_y$], use `density_invariant_cmax.py`:
+
+First adjust the parameters as necessary.:
 
 ```
-python3 example.py
+DensityInvariantCMax(filename="path_to_your_event_data",
+                     heuristic=OBJECTIVE[1],
+                     velocity_range=(-50, 50),
+                     resolution=50,
+                     ratio=0.0,
+                     tstart=0,
+                     tfinish=40e6,
+                     read_path="data/",
+                     save_path="img/")
 ```
+and run `python density_invariant_cmax.py`
 
-## Scripts
+This outputs the loss landscape across vx and vy. This is the difference between the landscapes if you used the `heuristic="variance"` (Left) and `heuristic="weighted_variance"` (Right)
 
-Python files in _scripts_ implement different methods to estimate the visual speed (px/s) of ISS recordings and generate figures to understand why the optimization process (contrast maximization) fails in some cases.
+<p align="center">
+  <img alt="Light" src="./img/landscape_before_after.png" width="70%">
+</p> 
 
-_scripts/configuration.py_ defines the parameters (file name, intial velocity...) used by the other script files.
 
--   _optimize_speed_contrast_maximization.py_ calculates the velocity that maximizes image contrast. Run `python3 optimize_speed_contrast_maximization.py --help` to list available optimization methods.
--   _plot_space_1d.py_ generates a 1D optimization space plot. _space_1d.py_ must be run first.
--   _plot_space.py_ generates a 2D optimization space plot. _space.py_ must be run first.
--   _project.py_ generates a contrast maximized image and its histogram using the velocity in _configuration.py_.
--   _space_1d.py_ calculates the image contrast for every vx (resp. vy) at constant vy (resp. vx).
--   _space.py_ calculates the image contast for every pair (vx, vy). This script takes a long time to run.
+#### Solvers
 
-## Papers
+Alternatively you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/optimise_cmax.py`.
 
-A Unifying Contrast Maximization Framework for Event Cameras, with Applications to Motion, Depth, and Optical Flow Estimation
+```
+OptimizeCMax(filename="path_to_your_event_data", 
+             objective=objective[1], 
+             solver=solver[0], 
+             tmax=10e6, 
+             ratio=0.0,
+             read_from="data/")
+```
+and run `python scripts/optimise_cmax.py`
 
-https://ieeexplore.ieee.org/document/8578505
+#### Analytical Modeling
 
-https://arxiv.org/pdf/1804.01306.pdf
+For a detailed understanding of the analytical modeling approach, refer to the provided Jupyter notebooks:
+- [analysis_1d.ipynb](scripts/analysis_1d.ipynb)
+- [analysis_2d.ipynb](scripts/analysis_2d.ipynb)
+
+These notebooks contain explanations and code snippets showcasing the analytical approach.
+
+#### Real-World Implementation
+
+For the actual implementation on the real-world ISS data: 
+- [implementation.py](scripts/implementation.py)
+
+#### Extending Heuristics and Solvers
+
+To implement a new heuristic and/or a new solver, you can edit the file inside: `event_warping/*.py`, or if you want to implement them in C++ then you can edit the file inside `event_warping_extension/*.cpp`. However, if you edit the .cpp file, you have to run this command in the terminal to enable the changes:
+
+```python3 -m pip install -e .```
