@@ -77,7 +77,7 @@ This documentation provides instructions for utilizing the code and exploring va
 The input events are assumed to be in the [event_stream (.es)](https://github.com/neuromorphicsystems/event_stream) format. Please refer to the [loris](https://github.com/neuromorphic-paris/loris) library to convert to/from .es format.
 
 #### Generating Loss Landscape
-To generate the loss landscape w.r.t the motion parameters [$v_x$,$v_y$], use `DensityInvariantCMax.py`:
+To generate the loss landscape w.r.t the motion parameters [$v_x$,$v_y$], use `density_invariant_cmax.py`:
 
 First adjust the parameters as necessary.:
 
@@ -92,7 +92,7 @@ DensityInvariantCMax(filename="path_to_your_event_data",
                      read_path="data/",
                      save_path="img/")
 ```
-and run `python DensityInvariantCMax.py`
+and run `python density_invariant_cmax.py`
 
 This outputs the loss landscape across vx and vy. This is the difference between the landscapes if you used the `heuristic="variance"` (Left) and `heuristic="weighted_variance"` (Right)
 
@@ -103,7 +103,7 @@ This outputs the loss landscape across vx and vy. This is the difference between
 
 #### Solvers
 
-Alternatively you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/OptimizeCMax.py`.
+Alternatively you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/optimise_cmax.py`.
 
 ```
 OptimizeCMax(filename="path_to_your_event_data", 
@@ -113,7 +113,7 @@ OptimizeCMax(filename="path_to_your_event_data",
              ratio=0.0,
              read_from="data/")
 ```
-and run `python OptimizeCMax.py`
+and run `python scripts/optimise_cmax.py`
 
 #### Analytical Modeling
 
