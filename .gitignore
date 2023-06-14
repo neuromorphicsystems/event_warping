@@ -7,3 +7,5 @@ __pypackages__
 scripts/cache
 figures
 recordings
+*.sketch
+.vscode
