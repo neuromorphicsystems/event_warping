@@ -133,3 +133,12 @@ For the actual implementation on the real-world ISS data:
 To implement a new heuristic and/or a new solver, you can edit the file inside: `event_warping/*.py`, or if you want to implement them in C++ then you can edit the file inside `event_warping_extension/*.cpp`. However, if you edit the .cpp file, you have to run this command in the terminal to enable the changes:
 
 ```python3 -m pip install -e .```
+
+#### Graphical Interface
+To visualize the image of the warped events w.r.t various motion candidates $v_x$ and $v_y$, a GUI is provided. First install vispy and pyqt:
+
+```pip install vispy```
+```pip install PyQt5```
+
+Then from the terminal run:
+```python3 shear.py```
