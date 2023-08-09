@@ -22,7 +22,7 @@ class DensityInvariantCMax:
         velocity_range: Tuple[float, float],
         resolution: int,
         ratio: float,
-        tstart: int,
+        tstart: float,
         tfinish: float,
         read_path: str,
         save_path: str,
@@ -42,6 +42,8 @@ class DensityInvariantCMax:
             self.read_path + self.filename + ".es"
         )
         events = event_warping.without_most_active_pixels(events, ratio=self.ratio)
+        if events["t"][0] != 0:
+            events["t"] = events["t"] - events["t"][0]
         self.events = events[
             np.where(
                 np.logical_and(events["t"] > self.tstart, events["t"] < self.tfinish)
@@ -122,7 +124,7 @@ class DensityInvariantCMax:
         draw.ellipse((max_intensity_coords_resized[1]-radius, max_intensity_coords_resized[0]-radius, 
                     max_intensity_coords_resized[1]+radius, max_intensity_coords_resized[0]+radius), outline='black')# type:ignore
         self.vx_resized = scalar_velocities[int(max_intensity_coords_resized[1] / scale_factor)]
-        text = f'vx: {self.vx_original:.3f}, vy: {self.vy_original:.3f}'
+        text = f'vx: {self.vy_original:.3f}, vy: {self.vx_original:.3f}'
         text_size = (len(text) * 6, radius)
         if max_intensity_coords_resized[1] + radius + text_size[0] < resized_image.width:
             text_pos_x = max_intensity_coords_resized[1] + radius
@@ -139,10 +141,11 @@ class DensityInvariantCMax:
             + f"_{self.velocity_range[0]}_{self.velocity_range[1]}_{self.resolution}_{self.heuristic}.png")
 
     def generate_motion_comp_img(self):
+        #flip vx and vy, because the img was rotated by 90
         cumulative_map = event_warping.accumulate(
             sensor_size=self.size,
             events=self.events,
-            velocity=(self.vx_original / 1e6, self.vy_original / 1e6),  # px/µs
+            velocity=(self.vy_original / 1e6, self.vx_original / 1e6),  # px/µs
         )
         image = event_warping.render(
             cumulative_map,
@@ -152,7 +155,7 @@ class DensityInvariantCMax:
         image.save(
             self.save_path
             + self.filename
-            + f'_vx_{self.vx_original:.3f}_vy_{self.vy_original:.3f}_motion_comp_img.png'
+            + f'_vx_{self.vy_original:.3f}_vy_{self.vx_original:.3f}_motion_comp_img.png'
         )
 
     def process(self):
@@ -168,17 +171,19 @@ if __name__ == "__main__":
     # List of objective functions to use
     OBJECTIVE = ["variance", "weighted_variance", "max"]
     EVENTS = [
+        "2021-02-03_49_50-b0-e1-00_cars",
+        "congenial-turkey-b1-54-e2-00_cars",
         "simple_noisy_events_with_motion",
         "2021-02-03_48_49-b0-e16.753394",
     ]
 
     calculator = DensityInvariantCMax(filename=EVENTS[0],
                                       heuristic=OBJECTIVE[0],
-                                      velocity_range=(-50, 50),
-                                      resolution=30,
+                                      velocity_range=(-500, 500),
+                                      resolution=200,
                                       ratio=0.0,
-                                      tstart=0,
-                                      tfinish=10e6,
+                                      tstart=24e6,
+                                      tfinish=25e6,
                                       read_path="data/",
                                       save_path="img/")
     calculator.process()

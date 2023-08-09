@@ -13,7 +13,7 @@ Code for [Density Invariant Contrast Maximization for Neuromorphic Earth Observa
 }
 ```
 
-> **Note:**  The publication of raw data is currently undergoing a review process by the Air Force Research Lab (AFRL). For further information or inquiries regarding the publication status and availability of the data, please feel free to contact us directly.
+> **Note:**  The publication of the raw data is currently undergoing a review process. Specific data can be released through written requests in the interim. Any requests should be directed to Associate Professor Gregory Cohen at Western Sydney University.
 
 A simple noisy and dense data is provided in `data/simple_noisy_events_with_motion.es` to run the algorithm.
 
@@ -77,7 +77,7 @@ This documentation provides instructions for utilizing the code and exploring va
 The input events are assumed to be in the [event_stream (.es)](https://github.com/neuromorphicsystems/event_stream) format. Please refer to the [loris](https://github.com/neuromorphic-paris/loris) library to convert to/from .es format.
 
 #### Generating Loss Landscape
-To generate the loss landscape w.r.t the motion parameters [$v_x$,$v_y$], use `density_invariant_cmax.py`:
+To generate the loss landscape w.r.t the motion parameters $v_x$ and $v_y$, use `density_invariant_cmax.py`:
 
 First adjust the parameters as necessary.:
 
@@ -88,13 +88,13 @@ DensityInvariantCMax(filename="path_to_your_event_data",
                      resolution=50,
                      ratio=0.0,
                      tstart=0,
-                     tfinish=40e6,
+                     tfinish=10e6, #for 10 second
                      read_path="data/",
                      save_path="img/")
 ```
 and run `python density_invariant_cmax.py`
 
-This outputs the loss landscape across vx and vy. This is the difference between the landscapes if you used the `heuristic="variance"` (Left) and `heuristic="weighted_variance"` (Right)
+This outputs the loss landscape across vx and vy. This is the difference between the landscapes if you used the `heuristic="variance"` (Left: **two solutions**) and `heuristic="weighted_variance"` (Right: **single solution**)
 
 <p align="center">
   <img alt="Light" src="./img/landscape_before_after.png" width="70%">
@@ -109,10 +109,13 @@ Alternatively you can choose not to compute the variance for every single $v_x$ 
 OptimizeCMax(filename="path_to_your_event_data", 
              objective=objective[1], 
              solver=solver[0], 
-             tmax=10e6, 
+             tstart=0, 
+             tfinish=10e6, #for 10 second
              ratio=0.0,
-             read_from="data/")
+             read_from="data/",
+             save_path="img/")
 ```
+
 and run `python scripts/optimise_cmax.py`
 
 #### Analytical Modeling
@@ -135,7 +138,7 @@ To implement a new heuristic and/or a new solver, you can edit the file inside: 
 ```python3 -m pip install -e .```
 
 #### Graphical Interface
-To visualize the image of the warped events w.r.t various motion candidates $v_x$ and $v_y$, a GUI is provided. First install vispy and pyqt:
+To visualize the change in the geometries in the image of the warped events w.r.t various motion candidates $v_x$ and $v_y$, a GUI is provided. First install vispy and pyqt:
 
 ```pip install vispy```
 ```pip install PyQt5```
