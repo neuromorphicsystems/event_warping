@@ -112,9 +112,8 @@ Alternatively you can choose not to compute the variance for every single $v_x$ 
 OptimizeCMax(filename=EVENTS[0],
              heuristic=OBJECTIVE[0],
              solver=solver[0],
-             initial_speed=200, #the speed range will be: (-200,200)
+             initial_speed=200, #a random value between (-200,200) for vx and vy
              tfinish=10e6, #for 10 second
-             ratio=0.0,
              ratio=0.0,
              read_path="data/",
              save_path="img/")
