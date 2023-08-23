@@ -1,38 +1,78 @@
+import os
+import random
 import numpy as np
-import event_warping
 from typing import Tuple
-
+import event_warping
 
 class OptimizeCMax:
-    def __init__(self, 
-                 filename: str, 
-                 heuristic: str, 
-                 solver: str, 
-                 tstart: float,
-                 tfinish: float, 
-                 ratio: float, 
-                 read_from: str,
-                 save_path: str):
-        
+    OBJECTIVE = {
+        "variance": event_warping.intensity_variance,
+        "weighted_variance": event_warping.intensity_weighted_variance,
+        "max": event_warping.intensity_maximum,
+    }
+
+    def __init__(
+        self, 
+        filename: str, 
+        heuristic: str, 
+        solver: str, 
+        initial_speed: float,
+        tstart: float,
+        tfinish: float, 
+        ratio: float, 
+        read_path: str,
+        save_path: str
+    ):
         self.filename = filename
         self.heuristic = heuristic
         self.solver = solver
         self.tstart = tstart
         self.tfinish = tfinish
         self.ratio = ratio
-        self.read_from = read_from
+        self.read_path = read_path
         self.save_path = save_path
+        self.load_and_preprocess_events()
+        initial_velocity = self.random_velocity(initial_speed)
+        self.optimize(initial_velocity)
 
-        self.width, self.height, self.events = event_warping.read_es_file(
-            self.read_from + self.filename + ".es"
-        )
-        self.events = event_warping.without_most_active_pixels(
-            self.events, ratio=self.ratio
-        )
-        valid_indices = np.where(
-            np.logical_and(self.events["t"] >= self.tstart, self.events["t"] <= self.tfinish)
-        )
-        self.events = self.events[valid_indices]
+    @staticmethod
+    def random_velocity(opt_range):
+        return (random.uniform(-opt_range / 1e6, opt_range / 1e6), 
+                random.uniform(-opt_range / 1e6, opt_range / 1e6))
+
+    def load_and_preprocess_events(self):
+        possible_extensions = [".es", ".txt"]
+        
+        file_extension = None
+        for ext in possible_extensions:
+            if os.path.exists(os.path.join(self.read_path, self.filename + ext)):
+                file_extension = ext
+                break
+        
+        if file_extension is None:
+            raise ValueError(f"File with name {self.filename} not found in {self.read_path}")
+
+        if file_extension == ".es":
+            self.width, self.height, events = event_warping.read_es_file(
+                os.path.join(self.read_path, self.filename + file_extension)
+            )
+        elif file_extension == ".txt":
+            self.width, self.height, events = event_warping.read_txt_file(
+                os.path.join(self.read_path, self.filename + file_extension)
+            )
+        else:
+            raise ValueError(f"Unsupported data type: {file_extension}")
+
+        events = event_warping.without_most_active_pixels(events, ratio=self.ratio)
+        if events["t"][0] != 0:
+            events["t"] = events["t"] - events["t"][0]
+        self.events = events[
+            np.where(
+                np.logical_and(events["t"] > self.tstart, events["t"] < self.tfinish)
+            )
+        ]
+        print(f"Number of events: {len(self.events)}")
+        self.size = (self.width, self.height)
 
     def calculate_heuristic(self, velocity: Tuple[float, float]):
         if self.heuristic == "variance":
@@ -61,7 +101,7 @@ class OptimizeCMax:
             method=self.solver,
             callback=self.callback,
         )
-        print(optimized_velocity)
+        print(optimized_velocity[0]*1e6, optimized_velocity[1]*1e6)
         cumulative_map = event_warping.accumulate(
             sensor_size=(self.width, self.height),
             events=self.events,
@@ -82,18 +122,23 @@ class OptimizeCMax:
 
 
 if __name__ == "__main__":
-    filename            = ["simple_noisy_events_with_motion",
-                           "2021-02-03_48_49-b0-e16.753394"]
-    objective           = ["variance", "weighted_variance", "max"]
-    solver              = ["Nelder-Mead", "BFGS"]
-    initial_velocity    = (20 / 1e6, -1 / 1e6)
-
-    event_processor = OptimizeCMax(filename=filename[1], 
-                                   heuristic=objective[1], 
-                                   solver=solver[1], 
-                                   tstart=14e6, 
-                                   tfinish=17e6, 
-                                   ratio=0.0,
-                                   read_from="data/",
-                                   save_path="img/")
-    event_processor.optimize(initial_velocity)
+    OBJECTIVE = ["variance", "weighted_variance", "max"]
+    EVENTS = [
+        "events",
+        "simple_noisy_events_with_motion",
+        "2021-02-03_48_49-b0-e16.753394"
+    ]
+    
+    solver = ["Nelder-Mead", "BFGS"]
+    
+    event_processor = OptimizeCMax(
+        filename=EVENTS[0],
+        heuristic=OBJECTIVE[0],
+        solver=solver[0],
+        initial_speed=200,
+        tstart=0.25e6,
+        tfinish=0.28e6,
+        ratio=0.0,
+        read_path="/home/samiarja/Desktop/PhD/Dataset/EED/what_is_background/",
+        save_path="img/"
+    )

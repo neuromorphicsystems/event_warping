@@ -17,16 +17,32 @@ import PIL.ImageDraw
 import PIL.ImageFont
 import scipy.optimize
 import typing
+from typing import Tuple
 
-def read_es_file(
-    path: typing.Union[pathlib.Path, str]
-) -> tuple[int, int, numpy.ndarray]:
+def read_es_file(path: typing.Union[pathlib.Path, str]) -> Tuple[int, int, numpy.ndarray]:
     with event_stream.Decoder(path) as decoder:
         return (
             decoder.width,
             decoder.height,
             numpy.concatenate([packet for packet in decoder]),
         )
+
+def read_txt_file(path: typing.Union[pathlib.Path, str]) -> Tuple[int, int, numpy.ndarray]:
+    dtype = [('t', '<u8'), ('x', '<u2'), ('y', '<u2'), ('on', '?')]
+    events_list = []
+
+    with open(path, 'r') as file:
+        for line in file:
+            parts = line.split()[:4]
+            t = int(float(parts[0]) * 1e6)
+            x, y, on = map(int, parts[1:])
+            on = bool(on)
+            events_list.append((t, x, y, on))
+
+    events_array = numpy.array(events_list, dtype=dtype)
+    width = events_array['x'].max() + 1
+    height = events_array['y'].max() + 1
+    return width, height, events_array
 
 
 def read_h5_file(
@@ -370,7 +386,7 @@ def optimize_local(
             x0=[initial_velocity[0] * 1e3, initial_velocity[1] * 1e3],
             method=method,
             bounds=scipy.optimize.Bounds([-1.0, -1.0], [1.0, 1.0]),
-            options={'ftol': 1e-9,'maxiter': 50},
+            options={'maxiter': 5000, "maxfev": 5000},
             callback=callback
         ).x
         return (float(result[0]) / 1e3, float(result[1]) / 1e3)

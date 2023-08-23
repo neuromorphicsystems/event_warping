@@ -1,3 +1,4 @@
+import os
 import concurrent.futures
 import event_warping
 import itertools
@@ -6,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot
 import PIL.Image
 from typing import Tuple
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 
 class DensityInvariantCMax:
     OBJECTIVE = {
@@ -37,10 +38,30 @@ class DensityInvariantCMax:
         self.read_path = read_path
         self.save_path = save_path
 
+
     def load_and_preprocess_events(self):
-        self.width, self.height, events = event_warping.read_es_file(
-            self.read_path + self.filename + ".es"
-        )
+        possible_extensions = [".es", ".txt"]
+        
+        file_extension = None
+        for ext in possible_extensions:
+            if os.path.exists(os.path.join(self.read_path, self.filename + ext)):
+                file_extension = ext
+                break
+        
+        if file_extension is None:
+            raise ValueError(f"File with name {self.filename} not found in {self.read_path}")
+
+        if file_extension == ".es":
+            self.width, self.height, events = event_warping.read_es_file(
+                os.path.join(self.read_path, self.filename + file_extension)
+            )
+        elif file_extension == ".txt":
+            self.width, self.height, events = event_warping.read_txt_file(
+                os.path.join(self.read_path, self.filename + file_extension)
+            )
+        else:
+            raise ValueError(f"Unsupported data type: {file_extension}")
+
         events = event_warping.without_most_active_pixels(events, ratio=self.ratio)
         if events["t"][0] != 0:
             events["t"] = events["t"] - events["t"][0]
@@ -49,9 +70,7 @@ class DensityInvariantCMax:
                 np.logical_and(events["t"] > self.tstart, events["t"] < self.tfinish)
             )
         ]
-
         print(f"Number of events: {len(self.events)}")
-
         self.size = (self.width, self.height)
 
     def calculate_heuristic(self, velocity: Tuple[float, float]):
@@ -170,7 +189,7 @@ class DensityInvariantCMax:
 if __name__ == "__main__":
     # List of objective functions to use
     OBJECTIVE = ["variance", "weighted_variance", "max"]
-    EVENTS = [
+    EVENTS = ["events",
         "2021-02-03_49_50-b0-e1-00_cars",
         "congenial-turkey-b1-54-e2-00_cars",
         "simple_noisy_events_with_motion",
@@ -179,11 +198,11 @@ if __name__ == "__main__":
 
     calculator = DensityInvariantCMax(filename=EVENTS[0],
                                       heuristic=OBJECTIVE[0],
-                                      velocity_range=(-500, 500),
-                                      resolution=200,
+                                      velocity_range=(-2000, 2000),
+                                      resolution=500,
                                       ratio=0.0,
-                                      tstart=24e6,
-                                      tfinish=25e6,
-                                      read_path="data/",
+                                      tstart=0.25e6,
+                                      tfinish=0.28e6,
+                                      read_path="/home/samiarja/Desktop/PhD/Dataset/EED/what_is_background/",
                                       save_path="img/")
     calculator.process()
