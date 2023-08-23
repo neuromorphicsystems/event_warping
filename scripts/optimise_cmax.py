@@ -139,6 +139,6 @@ if __name__ == "__main__":
         tstart=0.25e6,
         tfinish=0.28e6,
         ratio=0.0,
-        read_path="/home/samiarja/Desktop/PhD/Dataset/EED/what_is_background/",
+        read_path="data/",
         save_path="img/"
     )

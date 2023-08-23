@@ -74,7 +74,10 @@ The installation process compiles the event_warping_extension, which is required
 This documentation provides instructions for utilizing the code and exploring various functionalities. Follow the steps below to get started.
 
 #### Dataset format
-The input events are assumed to be in the [event_stream (.es)](https://github.com/neuromorphicsystems/event_stream) format. Please refer to the [loris](https://github.com/neuromorphic-paris/loris) library to convert to/from .es format.
+The input events are assumed to be either in the [event_stream (.es)](https://github.com/neuromorphicsystems/event_stream) or .txt format. Please refer to the [loris](https://github.com/neuromorphic-paris/loris) library to convert to/from .es format.
+The .txt file should be structured like: `txyp`
+
+You don't have to specify the file format (e.g. .es or .txt), just specify the file name and a function will figure the format and use the suitable data loader.
 
 #### Generating Loss Landscape
 To generate the loss landscape w.r.t the motion parameters $v_x$ and $v_y$, use `density_invariant_cmax.py`:
@@ -106,13 +109,14 @@ This outputs the loss landscape across vx and vy. This is the difference between
 Alternatively you can choose not to compute the variance for every single $v_x$ and $v_y$ and use an optimisation algorithm to search for the best speed value by changing the `solver` and `heuristic` options in `scripts/optimise_cmax.py`.
 
 ```
-OptimizeCMax(filename="path_to_your_event_data", 
-             objective=objective[1], 
-             solver=solver[0], 
-             tstart=0, 
+OptimizeCMax(filename=EVENTS[0],
+             heuristic=OBJECTIVE[0],
+             solver=solver[0],
+             initial_speed=200, #the speed range will be: (-200,200)
              tfinish=10e6, #for 10 second
              ratio=0.0,
-             read_from="data/",
+             ratio=0.0,
+             read_path="data/",
              save_path="img/")
 ```
 
