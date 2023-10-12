@@ -1,6 +1,6 @@
 # Density Invariant Contrast Maximization for Neuromorphic Earth Observations [CVPRW2023]
 
-Code for [Density Invariant Contrast Maximization for Neuromorphic Earth Observations](https://arxiv.org/abs/2304.14125).
+Code for **Density Invariant Contrast Maximization for Neuromorphic Earth Observations**.
 
 ```bibtex
 @InProceedings{arjaDensityInvariantCMax2023,
@@ -12,6 +12,23 @@ Code for [Density Invariant Contrast Maximization for Neuromorphic Earth Observa
     pages     = {3983-3993}
 }
 ```
+<table align="center">
+  <tr>
+    <td align="center" style="border:none;">
+      <a href="https://arxiv.org/pdf/2304.14125.pdf" target="_blank">
+        <img src="./img/arxiv.jpeg" alt="arXiv" width="50" style="padding:10px; background-color: #f5f5f5; border-radius: 10px; box-shadow: 2px 2px 12px #aaa;">
+      </a>
+    </td>
+    <td align="center" style="border:none;">
+      <a href="./img/2023CVPRW_DICMaxNEO_poster.pdf" target="_blank">
+        <img src="./img/poster_img.png" alt="Poster" width="68" style="padding:10px; background-color: #f5f5f5; border-radius: 10px; box-shadow: 2px 2px 12px #aaa;">
+      </a>
+    </td>
+  </tr>
+</table>
+
+
+
 
 > **Note:**  The publication of the raw data is currently undergoing a review process. Specific data can be released through written requests in the interim. Any requests should be directed to Associate Professor Gregory Cohen at Western Sydney University.
 
