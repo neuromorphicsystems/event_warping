@@ -1,9 +1,8 @@
 import os
-import random
 import numpy as np
 import event_warping
 from tqdm import tqdm
-from typing import Tuple, List
+from typing import Tuple
 
 class RobustCMax:
     def __init__(self, path: str, tstart: float, tfinish: float):
@@ -14,15 +13,15 @@ class RobustCMax:
         self.read_path, filename_with_ext = os.path.split(path)
         self.filename, _ = os.path.splitext(filename_with_ext)
         
-        self.load_and_preprocess_events()
-        self.vx, self.vy, self.contrast = self.find_best_velocity_with_iteratively(increment=10)
+        self.load_events()
+        self.vx, self.vy, self.contrast = self.find_best_velocity()
 
     @classmethod
     def run(cls, path: str, tstart: float, tfinish: float):
         instance = cls(path, tstart, tfinish)
         return instance.warp_image()
 
-    def load_and_preprocess_events(self):
+    def load_events(self):
         possible_extensions = [".es", ".txt"]
         
         file_extension = None
@@ -76,7 +75,7 @@ class RobustCMax:
     def callback(self, velocity: np.ndarray):
         print(f"velocity={velocity * 1e3}")
 
-    def find_best_velocity_with_iteratively(self, increment=1):
+    def find_best_velocity(self, increment=10):
         """
         Finds the best optimized velocity over a number of iterations.
         """
@@ -108,6 +107,6 @@ class RobustCMax:
         
         # Converting variances to a numpy array for easier handling
         variances = np.array(variances, dtype=[('velocity', float, 2), ('variance', float)])
-        print(f"vx: {best_velocity[0] * 1e6} vy: {best_velocity[1] * 1e6} contrast: {highest_variance}")
-        return best_velocity[0], best_velocity[1], highest_variance
+        print(f"vx: {best_velocity[0] * 1e6} vy: {best_velocity[1] * 1e6} contrast: {highest_variance}")  # type: ignore
+        return best_velocity[0], best_velocity[1], highest_variance  # type: ignore
 
