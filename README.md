@@ -96,6 +96,10 @@ The .txt file should be structured like: `txyp`
 
 You don't have to specify the file format (e.g. .es or .txt), just specify the file name and a function will figure the format and use the suitable data loader.
 
+#### Testing
+
+run [earth_mapping.py](earth_mapping.py) to generate motion compensated image using the density invariant contrast maximization method. Recommended for quick testing.
+
 #### Generating Loss Landscape
 To generate the loss landscape w.r.t the motion parameters $v_x$ and $v_y$, use `density_invariant_cmax.py`:
 
@@ -146,10 +150,8 @@ For a detailed understanding of the analytical modeling approach, refer to the p
 
 These notebooks contain explanations and code snippets showcasing the analytical approach.
 
-#### Real-World Implementation
-
-For the actual implementation on the real-world ISS data: 
-- [implementation.py](scripts/implementation.py)
+#### For the actual implementation on the real-world ISS data: 
+run [implementation.py](scripts/implementation.py)
 
 #### Extending Heuristics and Solvers
 

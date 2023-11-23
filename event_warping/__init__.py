@@ -18,6 +18,7 @@ import PIL.ImageFont
 import scipy.optimize
 import typing
 from typing import Tuple
+from PIL import Image, ImageDraw
 
 def read_es_file(path: typing.Union[pathlib.Path, str]) -> Tuple[int, int, numpy.ndarray]:
     with event_stream.Decoder(path) as decoder:
@@ -176,6 +177,23 @@ def intensity_variance(
         velocity[1],
     )
 
+def saveimg(contrastmap, var, fun_idx, t, fieldy, fieldx, imgpath):
+    colormap = matplotlib.pyplot.get_cmap("magma")  # type: ignore
+    gamma = lambda image: image ** (1 / 1)
+    scaled_pixels = gamma(
+        (contrastmap - contrastmap.min()) / (contrastmap.max() - contrastmap.min())
+    )
+    image = PIL.Image.fromarray(
+        (colormap(scaled_pixels)[:, :, :3] * 255).astype(numpy.uint8)
+    )
+
+    new_image = image.resize((500, 500))
+    filename = f"{var:.2f}_eventmap_f{fun_idx}_vx_{fieldx*t:.2f}_vy_{fieldy*t:.2f}.jpg"
+    filepath = os.path.join(imgpath, filename)
+    os.makedirs(imgpath, exist_ok=True)
+    new_image.save(filepath)
+    fun_idx = 0
+
 def variance_loss_calculator(evmap: numpy.ndarray):
     flating = evmap.flatten()
     res = flating[flating != 0]
@@ -183,13 +201,13 @@ def variance_loss_calculator(evmap: numpy.ndarray):
 
 def correction(i: numpy.ndarray, j: numpy.ndarray, x: numpy.ndarray, y: numpy.ndarray, vx: int, vy: int, width: int, height: int):
     return {
-        '1': (1, vx / width, vy / height),
-        '2': vx / x[i, j],
-        '3': vy / y[i, j],
-        '4': vx / (-x[i, j] + width + vx),
-        '5': vy / (-y[i, j] + height + vy),
-        '6': (vx*vy) / (vx*y[i, j] + vy*width - vy*x[i, j]),
-        '7': (vx*vy) / (vx*height - vx*y[i, j] + vy*x[i, j]),
+        "1": (1, vx / width, vy / height),
+        "2": vx / x[i, j],
+        "3": vy / y[i, j],
+        "4": vx / (-x[i, j] + width + vx),
+        "5": vy / (-y[i, j] + height + vy),
+        "6": (vx * vy) / (vx * y[i, j] + vy * width - vy * x[i, j]),
+        "7": (vx * vy) / (vx * height - vx * y[i, j] + vy * x[i, j]),
     }
 
 
@@ -207,28 +225,28 @@ def alpha_1(warped_image: numpy.ndarray, x: numpy.ndarray, y: numpy.ndarray, vx:
     """
     conditions = [
         (x > vx) & (x < width) & (y >= vy) & (y <= height),
-        (x > 0) & (x < vx) & (y <= height) & (y >= ((vy*x) / vx)),
-        (x >= 0) & (x <= width) & (y > 0) & (y < vy) & (y < ((vy*x) / vx)),
-        (x >= width) & (x <= width+vx) & (y >= vy) & (y <= (((vy*(x-width)) / vx) + height)),
-        (x > vx) & (x < width+vx) & (y > height) & (y > (((vy*(x-width)) / vx) + height)) & (y < height+vy),
-        (x > width) & (x < width+vx) & (y >= ((vy*(x-width)) / vx)) & (y < vy),
-        (x > 0) & (x < vx) & (y > height) & (y <= (((vy*x) / vx) + height))
+        (x > 0) & (x < vx) & (y <= height) & (y >= ((vy * x) / vx)),
+        (x >= 0) & (x <= width) & (y > 0) & (y < vy) & (y < ((vy * x) / vx)),
+        (x >= width) & (x <= width + vx) & (y >= vy) & (y <= (((vy * (x - width)) / vx) + height)),
+        (x > vx) & (x < width + vx) & (y > height) & (y > (((vy * (x - width)) / vx) + height)) & (y < height + vy),
+        (x > width) & (x < width + vx) & (y >= ((vy * (x - width)) / vx)) & (y < vy),
+        (x > 0) & (x < vx) & (y > height) & (y <= (((vy * x) / vx) + height)),
     ]
 
     for idx, condition in enumerate(conditions, start=1):
-        i, j = numpy.where(condition)            
+        i, j = numpy.where(condition)
         correction_func = correction(i, j, x, y, vx, vy, width, height)
         if idx == 1:
-            warped_image[i+1, j+1] *= correction_func[str(idx)][0]
-        else:    
-            warped_image[i+1, j+1] *= correction_func[str(idx)]
+            warped_image[i + 1, j + 1] *= correction_func[str(idx)][0]
+        else:
+            warped_image[i + 1, j + 1] *= correction_func[str(idx)]
 
-    warped_image[x > width+vx-edgepx] = 0
+    warped_image[x > width + vx - edgepx] = 0
     warped_image[x < edgepx] = 0
-    warped_image[y > height+vy-edgepx] = 0
+    warped_image[y > height + vy - edgepx] = 0
     warped_image[y < edgepx] = 0
-    warped_image[y < ((vy*(x-width)) / vx) + edgepx] = 0
-    warped_image[y > (((vy*x) / vx) + height) - edgepx] = 0
+    warped_image[y < ((vy * (x - width)) / vx) + edgepx] = 0
+    warped_image[y > (((vy * x) / vx) + height) - edgepx] = 0
     warped_image[numpy.isnan(warped_image)] = 0
     return warped_image
 
@@ -246,23 +264,23 @@ def alpha_2(warped_image: numpy.ndarray, x: numpy.ndarray, y: numpy.ndarray, vx:
     to estimate the camera.
     """
     conditions_1 = [
-        (x >= width) & (x <= vx) & (y >= (vy*x)/vx) & (y <= (vy/vx)*(x-width-vx)+vy+height), 
-        (x > 0) & (x < width) & (y >= (vy*x)/vx) & (y < height), 
-        (x > 0) & (x <= width) & (y > 0) & (y < (vy*x)/vx), 
-        (x > vx) & (x < vx+width) & (y > vy) & (y <= (vy/vx)*(x-width-vx)+vy+height), 
-        (x > vx) & (x < vx+width) & (y > (vy/vx)*(x-width-vx)+vy+height) & (y < height+vy), 
-        (x > width) & (x <= vx+width) & (y >= (vy*(x-width))/vx) & (y < vy) & (y < (vy*x)/vx) & (y > 0), 
-        (x > 0) & (x <= vx) & (y < (vy/vx)*x+height) & (y >= height) & (y > (vy/vx)*(x-width-vx)+vy+height) 
+        (x >= width) & (x <= vx) & (y >= (vy * x) / vx) & (y <= (vy / vx) * (x - width - vx) + vy + height),
+        (x > 0) & (x < width) & (y >= (vy * x) / vx) & (y < height),
+        (x > 0) & (x <= width) & (y > 0) & (y < (vy * x) / vx),
+        (x > vx) & (x < vx + width) & (y > vy) & (y <= (vy / vx) * (x - width - vx) + vy + height),
+        (x > vx) & (x < vx + width) & (y > (vy / vx) * (x - width - vx) + vy + height) & (y < height + vy),
+        (x > width) & (x <= vx + width) & (y >= (vy * (x - width)) / vx) & (y < vy) & (y < (vy * x) / vx) & (y > 0),
+        (x > 0) & (x <= vx) & (y < (vy / vx) * x + height) & (y >= height) & (y > (vy / vx) * (x - width - vx) + vy + height),
     ]
 
     conditions_2 = [
-        (x >= 0) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy) & (y > height) & (y < (vy*x)/vx), 
-        (x >= 0) & (x <= vx) & (y > (vy*x)/vx) & (y < height),
-        (x >= 0) & (x < width) & (y >= 0) & (y < (vy*x)/vx) & (y < height), 
-        (x > width) & (x < vx+width) & (y <= ((vy*(x-width))/vx)+height) & (y > vy), 
-        (x >= vx) & (x < vx+width) & (y > ((vy*(x-width))/vx)+height) & (y < vy+height) & (y > vy), 
-        (x >= width) & (x <= vx+width) & (y > (vy/vx)*(x-width)) & (y < ((vy*(x-width))/vx)+height) & (y > 0) & (y <vy), 
-        (x >= 0) & (x <= vx) & (y <= (vy/vx)*x+height) & (y > (vy/vx)*x) & (y > height) & (y <= height+vy) 
+        (x >= 0) & (x < vx + width) & (y > ((vy * (x - width)) / vx) + height) & (y < vy) & (y > height)  & (y < (vy * x) / vx),
+        (x >= 0) & (x <= vx) & (y > (vy * x) / vx) & (y < height),
+        (x >= 0) & (x < width) & (y >= 0) & (y < (vy * x) / vx) & (y < height),
+        (x > width) & (x < vx + width) & (y <= ((vy * (x - width)) / vx) + height) & (y > vy),
+        (x >= vx) & (x < vx + width) & (y > ((vy * (x - width)) / vx) + height) & (y < vy + height) & (y > vy),
+        (x >= width) & (x <= vx + width) & (y > (vy / vx) * (x - width)) & (y < ((vy * (x - width)) / vx) + height) & (y > 0) & (y < vy),
+        (x >= 0) & (x <= vx) & (y <= (vy / vx) * x + height) & (y > (vy / vx) * x) & (y > height) & (y <= height + vy),
     ]
 
     conditions = [conditions_1, conditions_2]
@@ -274,12 +292,12 @@ def alpha_2(warped_image: numpy.ndarray, x: numpy.ndarray, y: numpy.ndarray, vx:
         else:    
             warped_image[i+1, j+1] *= correction_func[str(idx)]
 
-    warped_image[x > width+vx-edgepx] = 0
+    warped_image[x > width + vx - edgepx] = 0
     warped_image[x < edgepx] = 0
-    warped_image[y > height+vy-edgepx] = 0
+    warped_image[y > height + vy - edgepx] = 0
     warped_image[y < edgepx] = 0
-    warped_image[y < ((vy*(x-width)) / vx) + edgepx] = 0
-    warped_image[y > (((vy*x) / vx) + height) - edgepx] = 0
+    warped_image[y < ((vy * (x - width)) / vx) + edgepx] = 0
+    warped_image[y > (((vy * x) / vx) + height) - edgepx] = 0
     warped_image[numpy.isnan(warped_image)] = 0
     return warped_image
 
@@ -296,7 +314,7 @@ def mirror(warped_image: numpy.ndarray):
 def intensity_weighted_variance(sensor_size: tuple[int, int],events: numpy.ndarray,velocity: tuple[float, float]):
     numpy.seterr(divide='ignore', invalid='ignore')
     t               = (events["t"][-1]-events["t"][0])/1e6
-    edgepx          = t
+    edgepx          = t*2
     width           = sensor_size[0]
     height          = sensor_size[1]
     fieldx          = velocity[0] / 1e-6
@@ -309,30 +327,38 @@ def intensity_weighted_variance(sensor_size: tuple[int, int],events: numpy.ndarr
     y               = numpy.tile(numpy.arange(1, warped_image.pixels.shape[0]+1), (warped_image.pixels.shape[1], 1)).T
     corrected_iwe   = None
     var             = 0.0
+    fun_idx         = 0
     
-    if (fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height):
+    if (fieldx * t >= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) <= height):
+        fun_idx += 1
         corrected_iwe            = alpha_1(warped_image.pixels, x, y, vx, vy, width, height, edgepx)
         
-    if (fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)<=height):
+    if (fieldx * t >= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) <= height):
+        fun_idx += 2
         warped_image.pixels     = mirror(warped_image.pixels)
         corrected_iwe           = alpha_1(warped_image.pixels, x, y, vx, vy, width, height, edgepx)
         
-    if (fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height) or ((((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height) or ((((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) <= 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height):
+    if ((fieldx * t >= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) <= height) or ((((vy / vx) * width) - height) / (numpy.sqrt(1 + (vy / vx) ** 2)) <= 0 and fieldx * t >= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height) or ((((vy / vx) * width) - height) / (numpy.sqrt(1 + (vy / vx) ** 2)) <= 0 and fieldx * t <= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height)):
+        fun_idx += 3
         corrected_iwe            = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 1)
 
-    if (fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height) or (fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height) or ((((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t >= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height) or ((((vy/vx)*width)-height)/(numpy.sqrt(1+(vy/vx)**2)) > 0 and fieldx*t <= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height):
+    if ( (fieldx * t >= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) >= height) or (fieldx * t <= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) >= height) or ( (((vy / vx) * width) - height) / (numpy.sqrt(1 + (vy / vx) ** 2)) > 0 and fieldx * t >= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height) or ( (((vy / vx) * width) - height) / (numpy.sqrt(1 + (vy / vx) ** 2)) > 0 and fieldx * t <= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height)):
+        fun_idx += 4
         corrected_iwe            = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 2)
 
-    if (fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height) or (fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)<=height) or ((height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height) or ((height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) >= 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height):
+    if ((fieldx * t >= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) <= height) or ((height + vy - (vy / vx) * (width + vx))/ (numpy.sqrt(1 + (-vy / vx) ** 2))>= 0 and fieldx * t >= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height) or ((height + vy - (vy / vx) * (width + vx))/ (numpy.sqrt(1 + (-vy / vx) ** 2))>= 0 and fieldx * t <= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height)):
+        fun_idx += 5
         warped_image.pixels     = mirror(warped_image.pixels)
         corrected_iwe           = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 1)
 
-    if (fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height) or (fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)<=width and numpy.abs(fieldy*t)>=height) or ((height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t >= 0.0 and fieldy*t <= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height) or ((height+vy-(vy/vx)*(width+vx))/(numpy.sqrt(1+(-vy/vx)**2)) < 0 and fieldx*t <= 0.0 and fieldy*t >= 0.0 and numpy.abs(fieldx*t)>=width and numpy.abs(fieldy*t)>=height):
+    if ((fieldx * t >= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) >= height) or (fieldx * t <= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) <= width and numpy.abs(fieldy * t) >= height) or ((height + vy - (vy / vx) * (width + vx))/ (numpy.sqrt(1 + (-vy / vx) ** 2)) < 0 and fieldx * t >= 0.0 and fieldy * t <= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height) or ((height + vy - (vy / vx) * (width + vx))/ (numpy.sqrt(1 + (-vy / vx) ** 2)) < 0 and fieldx * t <= 0.0 and fieldy * t >= 0.0 and numpy.abs(fieldx * t) >= width and numpy.abs(fieldy * t) >= height)):
+        fun_idx += 6
         warped_image.pixels     = mirror(warped_image.pixels)
         corrected_iwe           = alpha_2(warped_image.pixels, x, y, vx, vy, width, height, edgepx, 2)
     
     if corrected_iwe is not None:
         var = variance_loss_calculator(corrected_iwe)
+        # saveimg(corrected_iwe, var, fun_idx, t, fieldy, fieldx, "./img/test2/")
     return var
 
 def intensity_maximum(
@@ -386,7 +412,7 @@ def optimize_local(
             x0=[initial_velocity[0] * 1e3, initial_velocity[1] * 1e3],
             method=method,
             bounds=scipy.optimize.Bounds([-1.0, -1.0], [1.0, 1.0]),
-            options={'maxiter': 5000, "maxfev": 5000},
+            options={'maxiter': 10},
             callback=callback
         ).x
         return (float(result[0]) / 1e3, float(result[1]) / 1e3)

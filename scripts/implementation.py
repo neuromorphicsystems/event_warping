@@ -10,16 +10,17 @@ variance_loss = []
 fun_idx = 0
 SAVE = 1
 WEIGHT = 1
-VIDEOS = ["FN034HRTEgyptB_NADIR", "20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5"]
+VIDEOS = ["egypt_suez_canal_trimmed", "20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5"]
 OBJECTIVE = ["variance", "weighted_variance"]
-FILENAME = VIDEOS[1]
+FILENAME = VIDEOS[0]
 HEURISTIC = OBJECTIVE[1]
 VELOCITY_RANGE = (-30, 30)
 RESOLUTION = 30
 TMAX = 20e6
-RATIO = 0.00001
+RATIO = 0.0
 readfrom = "data/"
 savefileto = "img/"
+imgpath    = "./img/test/"
 scalar_velocities = np.linspace(VELOCITY_RANGE[0], VELOCITY_RANGE[1], RESOLUTION)
 nVel = len(scalar_velocities)
 
@@ -53,8 +54,10 @@ def without_most_active_pixels(events: np.ndarray, ratio: float):
 width, height, events = event_warping.read_es_file(readfrom + FILENAME + ".es")
 width += 1
 height += 1
-events = without_most_active_pixels(events, ratio=0.000001)
-ii = np.where(np.logical_and(events["t"] > 1, events["t"] < (TMAX)))
+events = without_most_active_pixels(events, ratio=0.0)
+if events["t"][0] != 0:
+    events["t"] = events["t"] - events["t"][0]
+ii = np.where(np.logical_and(events["t"] >= 0, events["t"] < (TMAX)))
 events = events[ii]
 t = (events["t"][-1] - events["t"][0]) / 1e6
 edgepx = t
@@ -218,7 +221,8 @@ def saveimg(contrastmap, var, fun_idx, t, fieldy, fieldx, imgpath, draw=False):
         draw_lines_and_text(d, vx, vy, width, height)
 
     new_image = image.resize((500, 500))
-    filename = f"eventmap_f{fun_idx}_vy_{fieldy*t}_vx_{fieldx*t}_var_{var}.jpg"
+    # filename = f"eventmap_f{fun_idx}_vy_{fieldy*t}_vx_{fieldx*t}_var_{var}.jpg"
+    filename = f"{var:.2f}_eventmap_f{fun_idx}_vy_{fieldy*t:.2f}_vx_{fieldx*t:.2f}.jpg"
     filepath = os.path.join(imgpath, filename)
     os.makedirs(imgpath, exist_ok=True)
     new_image.save(filepath)
@@ -231,8 +235,6 @@ def variance(evmap):
     return np.var(res)
 
 
-if SAVE:
-    deleteimg()
 
 for iVely in range(0, nVel):
     fieldy = scalar_velocities[iVely]
@@ -245,180 +247,38 @@ for iVely in range(0, nVel):
         vy = np.abs(fieldy * t)
         corrected_warped_image = None
 
-        x = np.tile(
-            np.arange(1, warped_image.pixels.shape[1] + 1),
-            (warped_image.pixels.shape[0], 1),
-        )
-        y = np.tile(
-            np.arange(1, warped_image.pixels.shape[0] + 1),
-            (warped_image.pixels.shape[1], 1),
-        ).T
+        x = np.tile(np.arange(1, warped_image.pixels.shape[1] + 1),(warped_image.pixels.shape[0], 1),)
+        y = np.tile(np.arange(1, warped_image.pixels.shape[0] + 1),(warped_image.pixels.shape[1], 1),).T
 
-        if (
-            fieldx * t >= 0.0
-            and fieldy * t >= 0.0
-            and np.abs(fieldx * t) <= width
-            and np.abs(fieldy * t) <= height
-        ) or (
-            fieldx * t <= 0.0
-            and fieldy * t <= 0.0
-            and np.abs(fieldx * t) <= width
-            and np.abs(fieldy * t) <= height
-        ):
+        if (fieldx * t >= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) <= height):
             fun_idx += 1
             corrected_warped_image = alpha_1(warped_image.pixels)
 
-        if (
-            fieldx * t >= 0.0
-            and fieldy * t <= 0.0
-            and np.abs(fieldx * t) <= width
-            and np.abs(fieldy * t) <= height
-        ) or (
-            fieldx * t <= 0.0
-            and fieldy * t >= 0.0
-            and np.abs(fieldx * t) <= width
-            and np.abs(fieldy * t) <= height
-        ):
+        if (fieldx * t >= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) <= height):
             fun_idx += 2
-            warped_image.pixels = mirror(warped_image.pixels)
+            warped_image.pixels    = mirror(warped_image.pixels)
             corrected_warped_image = alpha_1(warped_image.pixels)
 
-        if (
-            (
-                fieldx * t >= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) <= height
-            )
-            or (
-                fieldx * t <= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) <= height
-            )
-            or (
-                (((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) <= 0
-                and fieldx * t >= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                (((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) <= 0
-                and fieldx * t <= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-        ):
+        if ((fieldx * t >= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) <= height) or ((((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) <= 0 and fieldx * t >= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height) or ((((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) <= 0 and fieldx * t <= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height)):
             fun_idx += 3
             corrected_warped_image = alpha_2(warped_image.pixels, 1)
-
-        if (
-            (
-                fieldx * t >= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) <= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                fieldx * t <= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) <= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                (((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) > 0
-                and fieldx * t >= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                (((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) > 0
-                and fieldx * t <= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-        ):
+        
+        if ( (fieldx * t >= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) >= height) or (fieldx * t <= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) >= height) or ( (((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) > 0 and fieldx * t >= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height) or ( (((vy / vx) * width) - height) / (np.sqrt(1 + (vy / vx) ** 2)) > 0 and fieldx * t <= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height)):
             fun_idx += 4
             corrected_warped_image = alpha_2(warped_image.pixels, 2)
 
-        if (
-            (
-                fieldx * t >= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) <= height
-            )
-            or (
-                fieldx * t <= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) <= height
-            )
-            or (
-                (height + vy - (vy / vx) * (width + vx))
-                / (np.sqrt(1 + (-vy / vx) ** 2))
-                >= 0
-                and fieldx * t >= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                (height + vy - (vy / vx) * (width + vx))
-                / (np.sqrt(1 + (-vy / vx) ** 2))
-                >= 0
-                and fieldx * t <= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-        ):
+        if ((fieldx * t >= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) <= height) or (fieldx * t <= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) <= height) or ((height + vy - (vy / vx) * (width + vx))/ (np.sqrt(1 + (-vy / vx) ** 2))>= 0 and fieldx * t >= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height) or ((height + vy - (vy / vx) * (width + vx))/ (np.sqrt(1 + (-vy / vx) ** 2))>= 0 and fieldx * t <= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height)):
             fun_idx += 5
-            warped_image.pixels = mirror(warped_image.pixels)
+            warped_image.pixels    = mirror(warped_image.pixels)
             corrected_warped_image = alpha_2(warped_image.pixels, 1)
 
-        if (
-            (
-                fieldx * t >= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) <= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                fieldx * t <= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) <= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                (height + vy - (vy / vx) * (width + vx))
-                / (np.sqrt(1 + (-vy / vx) ** 2))
-                < 0
-                and fieldx * t >= 0.0
-                and fieldy * t <= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-            or (
-                (height + vy - (vy / vx) * (width + vx))
-                / (np.sqrt(1 + (-vy / vx) ** 2))
-                < 0
-                and fieldx * t <= 0.0
-                and fieldy * t >= 0.0
-                and np.abs(fieldx * t) >= width
-                and np.abs(fieldy * t) >= height
-            )
-        ):
+        if ((fieldx * t >= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) >= height) or (fieldx * t <= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) <= width and np.abs(fieldy * t) >= height) or ((height + vy - (vy / vx) * (width + vx))/ (np.sqrt(1 + (-vy / vx) ** 2)) < 0 and fieldx * t >= 0.0 and fieldy * t <= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height) or ((height + vy - (vy / vx) * (width + vx))/ (np.sqrt(1 + (-vy / vx) ** 2)) < 0 and fieldx * t <= 0.0 and fieldy * t >= 0.0 and np.abs(fieldx * t) >= width and np.abs(fieldy * t) >= height)):
             fun_idx += 6
-            warped_image.pixels = mirror(warped_image.pixels)
+            warped_image.pixels    = mirror(warped_image.pixels)
             corrected_warped_image = alpha_2(warped_image.pixels, 2)
 
         var = variance(corrected_warped_image)
-        # saveimg(corrected_warped_image, var, fun_idx, t, fieldy, fieldx, imgpath, draw=True)
+        saveimg(corrected_warped_image, var, fun_idx, t, fieldy, fieldx, imgpath, draw=True)
         variance_loss.append(var)
         fun_idx = 0
         sys.stdout.write(
