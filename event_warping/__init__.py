@@ -20,6 +20,27 @@ import typing
 from typing import Tuple
 from PIL import Image, ImageDraw
 
+
+def print_message(message, color='default', style='normal'):
+    styles = {
+        'default': '\033[0m',  # Reset to default
+        'bold': '\033[1m',
+        'underline': '\033[4m'
+    }
+    
+    colors = {
+        'default': '',
+        'red': '\033[91m',
+        'green': '\033[92m',
+        'yellow': '\033[93m',
+        'blue': '\033[94m',
+        'magenta': '\033[95m',
+        'cyan': '\033[96m'
+    }
+    
+    print(f"{styles[style]}{colors[color]}{message}{styles['default']}")
+
+    
 def read_es_file(path: typing.Union[pathlib.Path, str]) -> Tuple[int, int, numpy.ndarray]:
     with event_stream.Decoder(path) as decoder:
         return (

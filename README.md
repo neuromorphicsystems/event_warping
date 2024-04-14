@@ -11,12 +11,22 @@ Code for **Density Invariant Contrast Maximization for Neuromorphic Earth Observ
     year      = {2023},
     pages     = {3983-3993}
 }
+
 ```
+
+<!-- [![Project Page](./img/internationalspacestation_96228.ico)](https://samiarja.github.io/earthobservation/) -->
+
+
 <table align="center">
   <tr>
     <td align="center" style="border:none;">
+      <a href="https://samiarja.github.io/earthobservation/" target="_blank">
+        <img src="./img/internationalspacestation_96228.ico" alt="Project Page" width="50" style="padding:10px; background-color: #f5f5f5; border-radius: 10px; box-shadow: 2px 2px 12px #aaa;">
+      </a>
+    </td>
+    <td align="center" style="border:none;">
       <a href="https://arxiv.org/pdf/2304.14125.pdf" target="_blank">
-        <img src="./img/arxiv.jpeg" alt="arXiv" width="50" style="padding:10px; background-color: #f5f5f5; border-radius: 10px; box-shadow: 2px 2px 12px #aaa;">
+        <img src="./img/arxiv.jpeg" alt="Paper" width="50" style="padding:10px; background-color: #f5f5f5; border-radius: 10px; box-shadow: 2px 2px 12px #aaa;">
       </a>
     </td>
     <td align="center" style="border:none;">
@@ -25,7 +35,13 @@ Code for **Density Invariant Contrast Maximization for Neuromorphic Earth Observ
       </a>
     </td>
   </tr>
+  <tr>
+    <td align="center" style="border:none;">Project Page</td>
+    <td align="center" style="border:none;">Paper</td>
+    <td align="center" style="border:none;">Poster</td>
+  </tr>
 </table>
+
 
 
 

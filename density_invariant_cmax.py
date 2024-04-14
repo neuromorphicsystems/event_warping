@@ -130,9 +130,7 @@ class DensityInvariantCMax:
         scalar_velocities = np.linspace(*self.velocity_range, self.resolution)
         self.vx_original = scalar_velocities[max_intensity_coords_original[1]]
         self.vy_original = scalar_velocities[max_intensity_coords_original[0]]
-        resized_image = image.rotate(90, PIL.Image.NEAREST).resize(
-            (500, 500)
-        )
+        resized_image = image.rotate(90, PIL.Image.NEAREST).resize((500, 500))
         scale_factor = resized_image.width / image.width
         img_gray_resized = resized_image.convert('L')
         img_np_resized = np.array(img_gray_resized)
@@ -189,20 +187,33 @@ class DensityInvariantCMax:
 if __name__ == "__main__":
     # List of objective functions to use
     OBJECTIVE = ["variance", "weighted_variance", "max"]
-    EVENTS = ["events",
-        "2021-02-03_49_50-b0-e1-00_cars",
-        "congenial-turkey-b1-54-e2-00_cars",
-        "simple_noisy_events_with_motion",
-        "2021-02-03_48_49-b0-e16.753394",
+    EVENTS = [
+        "FN034HRTEgyptB_NADIR",
+        "20220125_Brittany_211945_2022-01-25_21-21-18_NADIR",
+        "20220124_201028_Panama_2022-01-24_20_12_11_NADIR.h5",
+        "20230119_4_UK_Nadir_Night_2023-01-19_20~25~10_NADIR",
+        "20220217_Houston_IAH_1_2022-02-17_20-28-02_NADIR",
+        "20220121a_Salvador_2022-01-21_20~58~34_NADIR.h5",
+        "20220127_Biscay_Spain_Med_211912_2_2022-01-27_21-53-58_NADIR",
+        "20220201_DIA_201410_2022-02-01_20-15-58_NADIR",
+        "20220125_Mexican_Coast_205735_2022-01-25_20~58~52_NADIR.h5",
+        "20220125_New_Zealand_220728_2022-01-25_22-09-42_NADIR"
     ]
 
-    calculator = DensityInvariantCMax(filename=EVENTS[0],
-                                      heuristic=OBJECTIVE[0],
-                                      velocity_range=(-2000, 2000),
-                                      resolution=500,
-                                      ratio=0.0,
-                                      tstart=0.25e6,
-                                      tfinish=0.28e6,
-                                      read_path="data/",
-                                      save_path="img/")
-    calculator.process()
+    filename_array = np.array(EVENTS)
+    for file_name in filename_array:
+        data_used = file_name
+        objective_function = OBJECTIVE[0]
+        event_warping.print_message(f"Processing: {data_used}", color='yellow', style='bold')
+        event_warping.print_message(f"Objective function: {objective_function}", color='red', style='bold')
+
+        calculator = DensityInvariantCMax(filename=data_used,
+                                        heuristic=objective_function,
+                                        velocity_range=(-30, 30),
+                                        resolution=200, #the higher the better, but becomes computationally expensive!
+                                        ratio=0.0,
+                                        tstart=0.0e6,
+                                        tfinish=30.0e6,
+                                        read_path="data/",
+                                        save_path="img/project_page/")
+        calculator.process()
